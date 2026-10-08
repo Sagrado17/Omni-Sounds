@@ -1,0 +1,141 @@
+{
+  "entities": {
+    "Beat": {
+      "title": "Beat",
+      "description": "A musical beat in the store",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "maxLength": 100 },
+        "producer": { "type": "string", "maxLength": 100 },
+        "genre": { "type": "string", "maxLength": 50 },
+        "bpm": { "type": "number" },
+        "key": { "type": "string", "maxLength": 10 },
+        "priceBasic": { "type": "number" },
+        "pricePremium": { "type": "number" },
+        "audioUrl": { "type": "string", "maxLength": 1000 },
+        "coverUrl": { "type": "string", "maxLength": 1000 },
+        "tags": { "type": "array" }
+      },
+      "required": ["id", "title", "producer", "genre", "bpm", "key", "priceBasic", "pricePremium", "coverUrl", "tags"]
+    },
+    "StudioSession": {
+      "title": "StudioSession",
+      "description": "A booked studio session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientName": { "type": "string", "maxLength": 100 },
+        "clientEmail": { "type": "string", "maxLength": 100 },
+        "clientPhone": { "type": "string", "maxLength": 30 },
+        "serviceType": { "type": "string", "enum": ["Gravação", "Mixagem", "Masterização", "Produção Completa"] },
+        "date": { "type": "string", "maxLength": 15 },
+        "timeSlot": { "type": "string", "maxLength": 50 },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "status": { "type": "string", "enum": ["Pendente", "Confirmado", "Concluído"] },
+        "estimatedCost": { "type": "number" }
+      },
+      "required": ["id", "clientName", "clientEmail", "clientPhone", "serviceType", "date", "timeSlot", "status", "estimatedCost"]
+    },
+    "StudioProject": {
+      "title": "StudioProject",
+      "description": "A completed studio portfolio project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "maxLength": 100 },
+        "artist": { "type": "string", "maxLength": 100 },
+        "type": { "type": "string", "maxLength": 50 },
+        "youtubeId": { "type": "string", "maxLength": 100 },
+        "driveFolderUrl": { "type": "string", "maxLength": 1000 },
+        "spotifyUrl": { "type": "string", "maxLength": 1000 },
+        "instagramUrl": { "type": "string", "maxLength": 1000 },
+        "coverImage": { "type": "string", "maxLength": 1000 },
+        "releaseDate": { "type": "string", "maxLength": 15 }
+      },
+      "required": ["id", "title", "artist", "type", "youtubeId", "coverImage", "releaseDate"]
+    },
+    "StudioSettings": {
+      "title": "StudioSettings",
+      "description": "Studio global configuration and info",
+      "type": "object",
+      "properties": {
+        "studioName": { "type": "string", "maxLength": 100 },
+        "slogan": { "type": "string", "maxLength": 200 },
+        "aboutText": { "type": "string", "maxLength": 2000 },
+        "contactEmail": { "type": "string", "maxLength": 100 },
+        "contactPhone": { "type": "string", "maxLength": 30 },
+        "instagramUrl": { "type": "string", "maxLength": 1000 },
+        "youtubeUrl": { "type": "string", "maxLength": 1000 },
+        "drivePortfolioUrl": { "type": "string", "maxLength": 1000 },
+        "address": { "type": "string", "maxLength": 300 }
+      },
+      "required": ["studioName", "slogan", "aboutText", "contactEmail", "contactPhone", "instagramUrl", "youtubeUrl", "drivePortfolioUrl", "address"]
+    },
+    "BeatPurchase": {
+      "title": "BeatPurchase",
+      "description": "A purchased beat from the beat store",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "beatId": { "type": "string" },
+        "beatTitle": { "type": "string" },
+        "licenseType": { "type": "string", "enum": ["basic", "premium"] },
+        "pricePaid": { "type": "number" },
+        "clientName": { "type": "string", "maxLength": 100 },
+        "clientEmail": { "type": "string", "maxLength": 100 },
+        "clientPhone": { "type": "string", "maxLength": 30 },
+        "timestamp": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pendente", "Concluído", "Cancelado"] }
+      },
+      "required": ["id", "beatId", "beatTitle", "licenseType", "pricePaid", "clientName", "clientEmail", "clientPhone", "timestamp", "status"]
+    },
+    "CustomBeatOrder": {
+      "title": "CustomBeatOrder",
+      "description": "A custom beat commissioned by a client",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientName": { "type": "string", "maxLength": 100 },
+        "clientEmail": { "type": "string", "maxLength": 100 },
+        "clientPhone": { "type": "string", "maxLength": 30 },
+        "genre": { "type": "string", "maxLength": 60 },
+        "bpm": { "type": "string", "maxLength": 20 },
+        "referenceSongName": { "type": "string", "maxLength": 200 },
+        "referenceSongUrl": { "type": "string", "maxLength": 1000 },
+        "beatDuration": { "type": "string", "maxLength": 50 },
+        "hasVocal": { "type": "boolean" },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "timestamp": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pendente", "Em Produção", "Prévia Enviada", "Concluído", "Cancelado"] }
+      },
+      "required": ["id", "clientName", "clientEmail", "clientPhone", "genre", "bpm", "referenceSongName", "beatDuration", "hasVocal", "timestamp", "status"]
+    }
+  },
+  "firestore": {
+    "beats/{beatId}": {
+      "schema": "Beat",
+      "description": "Collection of all available beats in the store"
+    },
+    "bookings/{bookingId}": {
+      "schema": "StudioSession",
+      "description": "Studio bookings made by clients"
+    },
+    "projects/{projectId}": {
+      "schema": "StudioProject",
+      "description": "Studio portfolio releases and projects"
+    },
+    "settings/{settingId}": {
+      "schema": "StudioSettings",
+      "description": "Studio configuration settings"
+    },
+    "purchases/{purchaseId}": {
+      "schema": "BeatPurchase",
+      "description": "Collection of all purchased beats"
+    },
+    "custom_beats/{orderId}": {
+      "schema": "CustomBeatOrder",
+      "description": "Custom beat requests and commissions"
+    }
+  }
+}
