@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Music, Radio, Calendar, FolderOpen, Instagram, Youtube, Phone, Mail, MapPin, 
   ChevronRight, Disc, Play, Pause, Download, Volume2, Shield, Sparkles, Award,
-  LogIn, LogOut, User, X, Plus, ArrowLeft, Type, Clock, Lock, ShieldCheck
+  LogIn, LogOut, User, X, Plus, ArrowLeft, Type, Clock, Lock, ShieldCheck,
+  RotateCcw, Database, UploadCloud, FileDown, FileUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { signInWithPopup, signOut, onAuthStateChanged, GoogleAuthProvider } from 'firebase/auth';
 import { 
   collection, 
   doc, 
@@ -15,7 +16,7 @@ import {
   getDoc, 
   getDocFromServer 
 } from 'firebase/firestore';
-import { auth, googleProvider, db } from './firebase';
+import { auth, googleProvider, db, setCachedAccessToken } from './firebase';
 
 enum OperationType {
   CREATE = 'create',
@@ -177,6 +178,148 @@ const INITIAL_SETTINGS: StudioSettings = {
   studioRates: DEFAULT_STUDIO_RATES
 };
 
+const INITIAL_BOOKINGS: StudioSession[] = [
+  {
+    id: 'book-demo-1',
+    clientName: 'Drippy Kid',
+    clientEmail: 'drippy@example.com',
+    clientPhone: '+351 923 456 789',
+    serviceType: 'Gravação',
+    date: '2026-10-15',
+    timeSlot: '14:00 - 16:00',
+    notes: 'Sessão vocal para single de Trap com autotune e compressão analógica.',
+    status: 'Confirmado',
+    estimatedCost: 8000
+  },
+  {
+    id: 'book-demo-2',
+    clientName: 'Kailo Music',
+    clientEmail: 'kailo@example.com',
+    clientPhone: '+351 934 567 890',
+    serviceType: 'Mixagem',
+    date: '2026-10-18',
+    timeSlot: '16:00 - 18:00',
+    notes: 'Mixagem de 24 stems + masterização para Spotify e Apple Music.',
+    status: 'Pendente',
+    estimatedCost: 15000
+  }
+];
+
+// Multi-Source Data Recovery & Protection Helpers
+function loadInitialOrSavedBeats(): Beat[] {
+  const candidateKeys = ['aegis_beats', 'omni_beats', 'aegis_beats_backup', 'omni_beats_backup', 'beats'];
+  for (const key of candidateKeys) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          try {
+            localStorage.setItem('aegis_beats_backup', JSON.stringify(parsed));
+            localStorage.setItem('omni_beats_backup', JSON.stringify(parsed));
+          } catch (e) {}
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn(`Error parsing beats from ${key}:`, e);
+    }
+  }
+  try {
+    localStorage.setItem('aegis_beats', JSON.stringify(INITIAL_BEATS));
+    localStorage.setItem('omni_beats', JSON.stringify(INITIAL_BEATS));
+    localStorage.setItem('aegis_beats_backup', JSON.stringify(INITIAL_BEATS));
+    localStorage.setItem('omni_beats_backup', JSON.stringify(INITIAL_BEATS));
+  } catch (e) {}
+  return INITIAL_BEATS;
+}
+
+function loadInitialOrSavedProjects(): StudioProject[] {
+  const candidateKeys = ['aegis_projects', 'omni_projects', 'aegis_projects_backup', 'omni_projects_backup', 'projects'];
+  for (const key of candidateKeys) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          try {
+            localStorage.setItem('aegis_projects_backup', JSON.stringify(parsed));
+            localStorage.setItem('omni_projects_backup', JSON.stringify(parsed));
+          } catch (e) {}
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn(`Error parsing projects from ${key}:`, e);
+    }
+  }
+  try {
+    localStorage.setItem('aegis_projects', JSON.stringify(INITIAL_PROJECTS));
+    localStorage.setItem('omni_projects', JSON.stringify(INITIAL_PROJECTS));
+    localStorage.setItem('aegis_projects_backup', JSON.stringify(INITIAL_PROJECTS));
+    localStorage.setItem('omni_projects_backup', JSON.stringify(INITIAL_PROJECTS));
+  } catch (e) {}
+  return INITIAL_PROJECTS;
+}
+
+function loadInitialOrSavedSettings(): StudioSettings {
+  const candidateKeys = ['aegis_settings', 'omni_settings', 'settings'];
+  for (const key of candidateKeys) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && parsed.studioName) {
+          return { ...INITIAL_SETTINGS, ...parsed };
+        }
+      }
+    } catch (e) {
+      console.warn(`Error parsing settings from ${key}:`, e);
+    }
+  }
+  try {
+    localStorage.setItem('aegis_settings', JSON.stringify(INITIAL_SETTINGS));
+    localStorage.setItem('omni_settings', JSON.stringify(INITIAL_SETTINGS));
+  } catch (e) {}
+  return INITIAL_SETTINGS;
+}
+
+function loadInitialOrSavedBookings(): StudioSession[] {
+  const candidateKeys = ['aegis_bookings', 'omni_bookings', 'aegis_bookings_backup', 'bookings'];
+  for (const key of candidateKeys) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn(`Error parsing bookings from ${key}:`, e);
+    }
+  }
+  return INITIAL_BOOKINGS;
+}
+
+function loadInitialOrSavedCustomOrders(): CustomBeatOrder[] {
+  const candidateKeys = ['aegis_custom_orders', 'omni_custom_orders', 'custom_orders'];
+  for (const key of candidateKeys) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn(`Error parsing custom orders from ${key}:`, e);
+    }
+  }
+  return [];
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<'estudio' | 'beats' | 'projetos' | 'agendar'>('estudio');
 
@@ -185,15 +328,15 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // User Authentication State
+  // User Authentication State (checking both aegis_ and omni_ keys)
   const [userEmail, setUserEmail] = useState<string | null>(() => {
-    return localStorage.getItem('aegis_user_email') || null;
+    return localStorage.getItem('aegis_user_email') || localStorage.getItem('omni_user_email') || null;
   });
   const [userName, setUserName] = useState<string | null>(() => {
-    return localStorage.getItem('aegis_user_name') || null;
+    return localStorage.getItem('aegis_user_name') || localStorage.getItem('omni_user_name') || null;
   });
   const [userPhoto, setUserPhoto] = useState<string | null>(() => {
-    return localStorage.getItem('aegis_user_photo') || null;
+    return localStorage.getItem('aegis_user_photo') || localStorage.getItem('omni_user_photo') || null;
   });
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
@@ -248,6 +391,10 @@ export default function App() {
   const handleGoogleSignIn = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) {
+        setCachedAccessToken(credential.accessToken);
+      }
       const user = result.user;
       if (user) {
         const lowerEmail = user.email ? user.email.toLowerCase() : '';
@@ -280,33 +427,19 @@ export default function App() {
     }
   };
 
-  // State loaded from LocalStorage if available
-  const [beats, setBeats] = useState<Beat[]>(() => {
-    const saved = localStorage.getItem('aegis_beats');
-    return saved ? JSON.parse(saved) : INITIAL_BEATS;
-  });
-
-  const [bookings, setBookings] = useState<StudioSession[]>(() => {
-    const saved = localStorage.getItem('aegis_bookings');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [projects, setProjects] = useState<StudioProject[]>(() => {
-    const saved = localStorage.getItem('aegis_projects');
-    return saved ? JSON.parse(saved) : INITIAL_PROJECTS;
-  });
-
+  // State loaded safely from multi-source local storage or original catalogs
+  const [beats, setBeats] = useState<Beat[]>(() => loadInitialOrSavedBeats());
+  const [bookings, setBookings] = useState<StudioSession[]>(() => loadInitialOrSavedBookings());
+  const [projects, setProjects] = useState<StudioProject[]>(() => loadInitialOrSavedProjects());
   const [purchases, setPurchases] = useState<BeatPurchase[]>([]);
-  const [customOrders, setCustomOrders] = useState<CustomBeatOrder[]>(() => {
-    const saved = localStorage.getItem('aegis_custom_orders');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [customOrders, setCustomOrders] = useState<CustomBeatOrder[]>(() => loadInitialOrSavedCustomOrders());
   const [isCustomOrderModalOpen, setIsCustomOrderModalOpen] = useState(false);
+  const [settings, setSettings] = useState<StudioSettings>(() => loadInitialOrSavedSettings());
 
-  const [settings, setSettings] = useState<StudioSettings>(() => {
-    const saved = localStorage.getItem('aegis_settings');
-    return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
-  });
+  // Prevent multiple redundant seed operations
+  const hasSeededBeatsRef = useRef(false);
+  const hasSeededProjectsRef = useRef(false);
+  const hasSeededSettingsRef = useRef(false);
 
   // Font Style selection state
   const [fontStyle, setFontStyle] = useState<FontStyleType>(() => {
@@ -358,24 +491,43 @@ export default function App() {
     testConnection();
   }, []);
 
-  // Listen for real-time changes in Firestore (strictly mirror Firestore state)
+  // Listen for real-time changes in Firestore (strictly non-destructive: never overwrite with empty array)
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'beats'), (snapshot) => {
       const list: Beat[] = [];
       snapshot.forEach((docSnap) => {
         list.push(docSnap.data() as Beat);
       });
-      setBeats(list);
-      try {
-        localStorage.setItem('aegis_beats', JSON.stringify(list));
-      } catch (e) {
-        console.warn("Storage save error:", e);
+      if (list.length > 0) {
+        setBeats(list);
+        try {
+          localStorage.setItem('aegis_beats', JSON.stringify(list));
+          localStorage.setItem('omni_beats', JSON.stringify(list));
+          localStorage.setItem('aegis_beats_backup', JSON.stringify(list));
+          localStorage.setItem('omni_beats_backup', JSON.stringify(list));
+        } catch (e) {
+          console.warn("Storage save error:", e);
+        }
+      } else {
+        // Firestore collection is currently empty! Do NOT wipe local user data.
+        const recovered = loadInitialOrSavedBeats();
+        setBeats(prev => prev.length > 0 ? prev : recovered);
+        if (isAdmin && !hasSeededBeatsRef.current) {
+          hasSeededBeatsRef.current = true;
+          recovered.forEach((b) => {
+            setDoc(doc(db, 'beats', b.id), sanitizeFirestorePayload(b)).catch(err => {
+              console.warn("Auto-seed beat notice:", err);
+            });
+          });
+        }
       }
     }, (error) => {
       console.error("Error listening to beats:", error);
+      const recovered = loadInitialOrSavedBeats();
+      setBeats(prev => prev.length > 0 ? prev : recovered);
     });
     return () => unsubscribe();
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'projects'), (snapshot) => {
@@ -383,17 +535,36 @@ export default function App() {
       snapshot.forEach((docSnap) => {
         list.push(docSnap.data() as StudioProject);
       });
-      setProjects(list);
-      try {
-        localStorage.setItem('aegis_projects', JSON.stringify(list));
-      } catch (e) {
-        console.warn("Storage save error:", e);
+      if (list.length > 0) {
+        setProjects(list);
+        try {
+          localStorage.setItem('aegis_projects', JSON.stringify(list));
+          localStorage.setItem('omni_projects', JSON.stringify(list));
+          localStorage.setItem('aegis_projects_backup', JSON.stringify(list));
+          localStorage.setItem('omni_projects_backup', JSON.stringify(list));
+        } catch (e) {
+          console.warn("Storage save error:", e);
+        }
+      } else {
+        // Firestore collection is currently empty! Do NOT wipe projects.
+        const recovered = loadInitialOrSavedProjects();
+        setProjects(prev => prev.length > 0 ? prev : recovered);
+        if (isAdmin && !hasSeededProjectsRef.current) {
+          hasSeededProjectsRef.current = true;
+          recovered.forEach((p) => {
+            setDoc(doc(db, 'projects', p.id), sanitizeFirestorePayload(p)).catch(err => {
+              console.warn("Auto-seed project notice:", err);
+            });
+          });
+        }
       }
     }, (error) => {
       console.error("Error listening to projects:", error);
+      const recovered = loadInitialOrSavedProjects();
+      setProjects(prev => prev.length > 0 ? prev : recovered);
     });
     return () => unsubscribe();
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, 'settings', 'studio'), (docSnap) => {
@@ -402,29 +573,30 @@ export default function App() {
         setSettings(studioData);
         try {
           localStorage.setItem('aegis_settings', JSON.stringify(studioData));
+          localStorage.setItem('omni_settings', JSON.stringify(studioData));
         } catch (e) {
           console.warn("Storage save error:", e);
+        }
+      } else {
+        const recovered = loadInitialOrSavedSettings();
+        setSettings(prev => prev || recovered);
+        if (isAdmin && !hasSeededSettingsRef.current) {
+          hasSeededSettingsRef.current = true;
+          setDoc(doc(db, 'settings', 'studio'), sanitizeFirestorePayload(recovered)).catch(err => {
+            console.warn("Auto-seed settings notice:", err);
+          });
         }
       }
     }, (error) => {
       console.error("Error listening to settings:", error);
     });
     return () => unsubscribe();
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!isAdmin) {
-      try {
-        const saved = localStorage.getItem('omni_bookings') || localStorage.getItem('aegis_bookings');
-        if (saved) {
-          setBookings(JSON.parse(saved));
-        } else {
-          setBookings([]);
-        }
-      } catch (e) {
-        console.warn("Error reading local bookings:", e);
-        setBookings([]);
-      }
+      const recovered = loadInitialOrSavedBookings();
+      setBookings(recovered);
       return;
     }
     const unsubscribe = onSnapshot(collection(db, 'bookings'), (snapshot) => {
@@ -432,9 +604,18 @@ export default function App() {
       snapshot.forEach((docSnap) => {
         list.push(docSnap.data() as StudioSession);
       });
-      setBookings(list);
+      if (list.length > 0) {
+        setBookings(list);
+        try {
+          localStorage.setItem('aegis_bookings', JSON.stringify(list));
+          localStorage.setItem('omni_bookings', JSON.stringify(list));
+        } catch (e) {}
+      } else {
+        setBookings(prev => prev.length > 0 ? prev : loadInitialOrSavedBookings());
+      }
     }, (error) => {
       console.error("Error listening to bookings:", error);
+      setBookings(prev => prev.length > 0 ? prev : loadInitialOrSavedBookings());
     });
     return () => unsubscribe();
   }, [isAdmin]);
@@ -637,7 +818,11 @@ export default function App() {
     // Optimistic local state update
     setBeats(prev => [cleanBeat, ...prev.filter(b => b.id !== cleanBeat.id)]);
     try {
-      localStorage.setItem('aegis_beats', JSON.stringify([cleanBeat, ...beats.filter(b => b.id !== cleanBeat.id)]));
+      const updated = [cleanBeat, ...beats.filter(b => b.id !== cleanBeat.id)];
+      localStorage.setItem('aegis_beats', JSON.stringify(updated));
+      localStorage.setItem('omni_beats', JSON.stringify(updated));
+      localStorage.setItem('aegis_beats_backup', JSON.stringify(updated));
+      localStorage.setItem('omni_beats_backup', JSON.stringify(updated));
     } catch (e) {
       console.warn("Storage save notice:", e);
     }
@@ -660,7 +845,11 @@ export default function App() {
     // Optimistic local state update
     setBeats(prev => prev.map(b => b.id === cleanBeat.id ? cleanBeat : b));
     try {
-      localStorage.setItem('aegis_beats', JSON.stringify(beats.map(b => b.id === cleanBeat.id ? cleanBeat : b)));
+      const updated = beats.map(b => b.id === cleanBeat.id ? cleanBeat : b);
+      localStorage.setItem('aegis_beats', JSON.stringify(updated));
+      localStorage.setItem('omni_beats', JSON.stringify(updated));
+      localStorage.setItem('aegis_beats_backup', JSON.stringify(updated));
+      localStorage.setItem('omni_beats_backup', JSON.stringify(updated));
     } catch (e) {
       console.warn("Storage save notice:", e);
     }
@@ -682,7 +871,11 @@ export default function App() {
     // Optimistic local state update
     setBeats(prev => prev.filter(b => b.id !== id));
     try {
-      localStorage.setItem('aegis_beats', JSON.stringify(beats.filter(b => b.id !== id)));
+      const updated = beats.filter(b => b.id !== id);
+      localStorage.setItem('aegis_beats', JSON.stringify(updated));
+      localStorage.setItem('omni_beats', JSON.stringify(updated));
+      localStorage.setItem('aegis_beats_backup', JSON.stringify(updated));
+      localStorage.setItem('omni_beats_backup', JSON.stringify(updated));
     } catch (e) {
       console.warn("Storage save notice:", e);
     }
@@ -705,7 +898,11 @@ export default function App() {
     // Optimistic local state update
     setProjects(prev => [cleanProject, ...prev.filter(p => p.id !== cleanProject.id)]);
     try {
-      localStorage.setItem('aegis_projects', JSON.stringify([cleanProject, ...projects.filter(p => p.id !== cleanProject.id)]));
+      const updated = [cleanProject, ...projects.filter(p => p.id !== cleanProject.id)];
+      localStorage.setItem('aegis_projects', JSON.stringify(updated));
+      localStorage.setItem('omni_projects', JSON.stringify(updated));
+      localStorage.setItem('aegis_projects_backup', JSON.stringify(updated));
+      localStorage.setItem('omni_projects_backup', JSON.stringify(updated));
     } catch (e) {
       console.warn("Storage save notice:", e);
     }
@@ -728,7 +925,11 @@ export default function App() {
     // Optimistic local state update
     setProjects(prev => prev.map(p => p.id === cleanProject.id ? cleanProject : p));
     try {
-      localStorage.setItem('aegis_projects', JSON.stringify(projects.map(p => p.id === cleanProject.id ? cleanProject : p)));
+      const updated = projects.map(p => p.id === cleanProject.id ? cleanProject : p);
+      localStorage.setItem('aegis_projects', JSON.stringify(updated));
+      localStorage.setItem('omni_projects', JSON.stringify(updated));
+      localStorage.setItem('aegis_projects_backup', JSON.stringify(updated));
+      localStorage.setItem('omni_projects_backup', JSON.stringify(updated));
     } catch (e) {
       console.warn("Storage save notice:", e);
     }
@@ -750,7 +951,11 @@ export default function App() {
     // Optimistic local state update
     setProjects(prev => prev.filter(p => p.id !== id));
     try {
-      localStorage.setItem('aegis_projects', JSON.stringify(projects.filter(p => p.id !== id)));
+      const updated = projects.filter(p => p.id !== id);
+      localStorage.setItem('aegis_projects', JSON.stringify(updated));
+      localStorage.setItem('omni_projects', JSON.stringify(updated));
+      localStorage.setItem('aegis_projects_backup', JSON.stringify(updated));
+      localStorage.setItem('omni_projects_backup', JSON.stringify(updated));
     } catch (e) {
       console.warn("Storage save notice:", e);
     }
@@ -782,6 +987,7 @@ export default function App() {
         setBookings(prev => {
           const updated = [newBooking, ...prev];
           try {
+            localStorage.setItem('aegis_bookings', JSON.stringify(updated));
             localStorage.setItem('omni_bookings', JSON.stringify(updated));
           } catch (e) {
             console.warn("Storage save error:", e);
@@ -824,6 +1030,7 @@ export default function App() {
     setSettings(cleanSettings);
     try {
       localStorage.setItem('aegis_settings', JSON.stringify(cleanSettings));
+      localStorage.setItem('omni_settings', JSON.stringify(cleanSettings));
     } catch (e) {
       console.warn("Storage save notice:", e);
     }
@@ -839,6 +1046,136 @@ export default function App() {
         handleFirestoreError(error, OperationType.WRITE, 'settings/studio');
       }
     }
+  };
+
+  // Comprehensive Data Restoration & Backup Handlers
+  const handleRestorePreviousData = async () => {
+    try {
+      const recoveredBeats = loadInitialOrSavedBeats();
+      const recoveredProjects = loadInitialOrSavedProjects();
+      const recoveredSettings = loadInitialOrSavedSettings();
+      const recoveredBookings = loadInitialOrSavedBookings();
+
+      setBeats(recoveredBeats);
+      setProjects(recoveredProjects);
+      setSettings(recoveredSettings);
+      setBookings(recoveredBookings);
+
+      try {
+        localStorage.setItem('aegis_beats', JSON.stringify(recoveredBeats));
+        localStorage.setItem('omni_beats', JSON.stringify(recoveredBeats));
+        localStorage.setItem('aegis_beats_backup', JSON.stringify(recoveredBeats));
+        localStorage.setItem('omni_beats_backup', JSON.stringify(recoveredBeats));
+
+        localStorage.setItem('aegis_projects', JSON.stringify(recoveredProjects));
+        localStorage.setItem('omni_projects', JSON.stringify(recoveredProjects));
+        localStorage.setItem('aegis_projects_backup', JSON.stringify(recoveredProjects));
+        localStorage.setItem('omni_projects_backup', JSON.stringify(recoveredProjects));
+
+        localStorage.setItem('aegis_settings', JSON.stringify(recoveredSettings));
+        localStorage.setItem('omni_settings', JSON.stringify(recoveredSettings));
+
+        localStorage.setItem('aegis_bookings', JSON.stringify(recoveredBookings));
+        localStorage.setItem('omni_bookings', JSON.stringify(recoveredBookings));
+      } catch (e) {
+        console.warn("Local storage write error:", e);
+      }
+
+      if (isAdmin) {
+        for (const b of recoveredBeats) {
+          await setDoc(doc(db, 'beats', b.id), sanitizeFirestorePayload(b));
+        }
+        for (const p of recoveredProjects) {
+          await setDoc(doc(db, 'projects', p.id), sanitizeFirestorePayload(p));
+        }
+        await setDoc(doc(db, 'settings', 'studio'), sanitizeFirestorePayload(recoveredSettings));
+        for (const bk of recoveredBookings) {
+          await setDoc(doc(db, 'bookings', bk.id), sanitizeFirestorePayload(bk));
+        }
+        showNotification(`🎉 Dados anteriores e catálogo completo recuperados com sucesso! (${recoveredBeats.length} beats e ${recoveredProjects.length} projetos sincronizados no Firestore)`);
+      } else {
+        showNotification(`✅ Dados anteriores restaurados localmente com sucesso! (${recoveredBeats.length} beats e ${recoveredProjects.length} projetos prontos)`);
+      }
+    } catch (error: any) {
+      console.error('Erro na restauração de dados:', error);
+      showNotification('Aviso ao restaurar: ' + (error?.message || 'Tente novamente'));
+    }
+  };
+
+  const handleExportBackup = () => {
+    try {
+      const payload = {
+        version: '1.0',
+        exportedAt: new Date().toISOString(),
+        beats,
+        projects,
+        settings,
+        bookings,
+        customOrders,
+        purchases
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `omni_sounds_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showNotification('💾 Cópia de segurança (backup JSON) exportada com sucesso!');
+    } catch (e: any) {
+      showNotification('Erro ao exportar backup: ' + e?.message);
+    }
+  };
+
+  const handleImportBackup = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const text = e.target?.result as string;
+        const parsed = JSON.parse(text);
+        if (parsed.beats && Array.isArray(parsed.beats)) {
+          setBeats(parsed.beats);
+          localStorage.setItem('aegis_beats', JSON.stringify(parsed.beats));
+          localStorage.setItem('omni_beats', JSON.stringify(parsed.beats));
+          localStorage.setItem('aegis_beats_backup', JSON.stringify(parsed.beats));
+          if (isAdmin) {
+            for (const b of parsed.beats) {
+              await setDoc(doc(db, 'beats', b.id), sanitizeFirestorePayload(b));
+            }
+          }
+        }
+        if (parsed.projects && Array.isArray(parsed.projects)) {
+          setProjects(parsed.projects);
+          localStorage.setItem('aegis_projects', JSON.stringify(parsed.projects));
+          localStorage.setItem('omni_projects', JSON.stringify(parsed.projects));
+          localStorage.setItem('aegis_projects_backup', JSON.stringify(parsed.projects));
+          if (isAdmin) {
+            for (const p of parsed.projects) {
+              await setDoc(doc(db, 'projects', p.id), sanitizeFirestorePayload(p));
+            }
+          }
+        }
+        if (parsed.settings && typeof parsed.settings === 'object') {
+          setSettings(parsed.settings);
+          localStorage.setItem('aegis_settings', JSON.stringify(parsed.settings));
+          localStorage.setItem('omni_settings', JSON.stringify(parsed.settings));
+          if (isAdmin) {
+            await setDoc(doc(db, 'settings', 'studio'), sanitizeFirestorePayload(parsed.settings));
+          }
+        }
+        if (parsed.bookings && Array.isArray(parsed.bookings)) {
+          setBookings(parsed.bookings);
+          localStorage.setItem('aegis_bookings', JSON.stringify(parsed.bookings));
+          localStorage.setItem('omni_bookings', JSON.stringify(parsed.bookings));
+        }
+        showNotification('🎉 Backup importado e restaurado com sucesso!');
+      } catch (err: any) {
+        showNotification('Erro ao importar backup: Formato JSON inválido.');
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handlePurchase = async (
@@ -1218,9 +1555,22 @@ Aguardo a confirmação e detalhes de início da produção!`;
                       {/* Options / Action list */}
                       <div className="space-y-1">
                         {isAdmin && (
-                          <div className="px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[10px] text-amber-500 font-bold uppercase tracking-wider text-center flex items-center justify-center gap-1.5">
-                            <Shield className="w-3.5 h-3.5" />
-                            <span>Produtor Pascoal (Admin)</span>
+                          <div className="space-y-1.5">
+                            <div className="px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[10px] text-amber-500 font-bold uppercase tracking-wider text-center flex items-center justify-center gap-1.5">
+                              <Shield className="w-3.5 h-3.5" />
+                              <span>Produtor Pascoal (Admin)</span>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setIsProfileDropdownOpen(false);
+                                handleRestorePreviousData();
+                              }}
+                              className="w-full flex items-center justify-center gap-1.5 bg-amber-500/10 hover:bg-amber-500 hover:text-black text-amber-400 border border-amber-500/30 py-1.5 rounded-lg transition-all text-[11px] font-semibold cursor-pointer font-mono"
+                              title="Restaurar instrumentais e dados do estúdio"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>Restaurar Dados Anteriores</span>
+                            </button>
                           </div>
                         )}
                         
@@ -1598,6 +1948,7 @@ Aguardo a confirmação e detalhes de início da produção!`;
                 isPlaying={isBeatPlaying}
                 onPurchase={handlePurchase}
                 onOpenCustomOrder={() => setIsCustomOrderModalOpen(true)}
+                onRestoreData={handleRestorePreviousData}
               />
             </div>
           )}
@@ -1617,7 +1968,7 @@ Aguardo a confirmação e detalhes de início da produção!`;
                 </p>
               </div>
 
-              <Portfolio projects={projects} isAdmin={isAdmin} />
+              <Portfolio projects={projects} isAdmin={isAdmin} onRestoreData={handleRestorePreviousData} />
             </div>
           )}
 
@@ -1754,6 +2105,10 @@ Aguardo a confirmação e detalhes de início da produção!`;
           onDeleteCustomOrder={handleDeleteCustomOrder}
           currentFont={fontStyle}
           onSelectFont={setFontStyle}
+          onShowNotification={showNotification}
+          onRestorePreviousData={handleRestorePreviousData}
+          onExportBackup={handleExportBackup}
+          onImportBackup={handleImportBackup}
         />
       )}
 

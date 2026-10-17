@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Pause, ShoppingCart, Search, Music, Disc, BadgeAlert, Layers, Sparkles, Check, X, Shield, ChevronDown, ChevronUp, Info, CheckCircle2 } from 'lucide-react';
+import { Play, Pause, ShoppingCart, Search, Music, Disc, BadgeAlert, Layers, Sparkles, Check, X, Shield, ChevronDown, ChevronUp, Info, CheckCircle2, RotateCcw } from 'lucide-react';
 import { Beat, transformGoogleDriveUrl, getBeatLicensePrice } from '../types';
 import PricingTable, { PRICING_TIERS } from './PricingTable';
 
@@ -16,6 +16,7 @@ interface BeatStoreProps {
     clientPhone: string
   ) => void;
   onOpenCustomOrder?: () => void;
+  onRestoreData?: () => void;
 }
 
 export default function BeatStore({
@@ -24,7 +25,8 @@ export default function BeatStore({
   currentPlayingBeat,
   isPlaying,
   onPurchase,
-  onOpenCustomOrder
+  onOpenCustomOrder,
+  onRestoreData
 }: BeatStoreProps) {
   const [search, setSearch] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('Todos');
@@ -239,9 +241,27 @@ export default function BeatStore({
             );
           })
         ) : (
-          <div className="col-span-2 text-center py-12 bg-zinc-900/40 rounded-2xl border border-zinc-800/30">
-            <Music className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
-            <p className="text-zinc-400 text-sm">Nenhum beat encontrado para sua pesquisa.</p>
+          <div className="col-span-2 text-center py-12 bg-zinc-900/40 rounded-2xl border border-zinc-800/30 p-6 space-y-4">
+            <Music className="w-12 h-12 text-amber-500/50 mx-auto" />
+            <div>
+              <h4 className="text-white font-bold text-base">
+                {beats.length === 0 ? "O catálogo de beats não possui faixas carregadas" : "Nenhum beat encontrado para sua pesquisa"}
+              </h4>
+              <p className="text-zinc-400 text-xs mt-1.5 max-w-md mx-auto">
+                {beats.length === 0
+                  ? "Se os instrumentais anteriores não estiverem aparecendo após a sincronização com o banco de dados, você pode restaurá-los com um clique."
+                  : "Tente ajustar o termo pesquisado ou altere o gênero selecionado nos filtros acima."}
+              </p>
+            </div>
+            {beats.length === 0 && onRestoreData && (
+              <button
+                onClick={onRestoreData}
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-extrabold px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider font-mono cursor-pointer transition-all shadow-lg shadow-amber-500/20 hover:scale-105"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Restaurar Catálogo de Beats Anteriores</span>
+              </button>
+            )}
           </div>
         )}
       </div>
