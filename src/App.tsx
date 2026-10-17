@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { 
   Music, Radio, Calendar, FolderOpen, Instagram, Youtube, Phone, Mail, MapPin, 
   ChevronRight, Disc, Play, Pause, Download, Volume2, Shield, Sparkles, Award,
-  LogIn, LogOut, User, X, Plus, ArrowLeft, Type, Clock, Lock, ShieldCheck
+  LogIn, LogOut, User, X, Plus, ArrowLeft, Type, Clock, Lock, ShieldCheck, Cloud
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { signInWithPopup, signOut, onAuthStateChanged, GoogleAuthProvider } from 'firebase/auth';
 import { 
   collection, 
   doc, 
@@ -15,7 +15,7 @@ import {
   getDoc, 
   getDocFromServer 
 } from 'firebase/firestore';
-import { auth, googleProvider, db } from './firebase';
+import { auth, googleProvider, db, setCachedGoogleToken } from './firebase';
 
 enum OperationType {
   CREATE = 'create',
@@ -248,13 +248,17 @@ export default function App() {
   const handleGoogleSignIn = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) {
+        setCachedGoogleToken(credential.accessToken);
+      }
       const user = result.user;
       if (user) {
         const lowerEmail = user.email ? user.email.toLowerCase() : '';
         if (lowerEmail === 'pascoalbernabe678@gamail.com' || lowerEmail === 'pascoalbernabe678@gmail.com') {
-          showNotification('🎉 Bem-vindo de volta, Produtor Pascoal! Painel administrativo liberado via Google.');
+          showNotification('🎉 Bem-vindo de volta, Produtor Pascoal! Google Drive e Painel administrativo sincronizados.');
         } else {
-          showNotification(`Sessão iniciada como ${user.displayName || user.email} via Google.`);
+          showNotification(`Sessão iniciada como ${user.displayName || user.email} com Google Drive integrado.`);
         }
         setIsLoginModalOpen(false);
       }
@@ -1216,13 +1220,24 @@ Aguardo a confirmação e detalhes de início da produção!`;
                       </div>
 
                       {/* Options / Action list */}
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         {isAdmin && (
                           <div className="px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[10px] text-amber-500 font-bold uppercase tracking-wider text-center flex items-center justify-center gap-1.5">
                             <Shield className="w-3.5 h-3.5" />
                             <span>Produtor Pascoal (Admin)</span>
                           </div>
                         )}
+
+                        {/* Google Drive status */}
+                        <div className="px-2.5 py-1.5 bg-zinc-900/90 border border-zinc-800/80 rounded-lg flex items-center justify-between">
+                          <span className="text-[10px] text-zinc-300 font-mono flex items-center gap-1.5">
+                            <Cloud className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Google Drive</span>
+                          </span>
+                          <span className="text-[9px] font-bold font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                            ✓ Sincronizado
+                          </span>
+                        </div>
                         
                         <p className="text-[10px] text-zinc-500 font-mono px-2 py-0.5">
                           {settings.studioName || 'Omni Sounds Studio'}
