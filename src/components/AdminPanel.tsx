@@ -1,9 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Settings, Plus, CheckCircle, Trash2, Edit3, X, Sliders, Calendar, Music, Disc, Link2, Type, Check, Sparkles, Mic2, Clock, MessageCircle, ExternalLink, Shield, Layers, DollarSign, Image as ImageIcon, HardDrive, FileAudio, Play, Pause, RotateCcw, Database, Download, Upload } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings, Plus, CheckCircle, Trash2, Edit3, X, Sliders, Calendar, Music, Disc, Link2, Type, Check, Sparkles, Mic2, Clock, MessageCircle, ExternalLink, Shield, Layers, DollarSign, Image as ImageIcon } from 'lucide-react';
 import { Beat, StudioSession, StudioProject, StudioSettings, BeatPurchase, CustomBeatOrder, transformGoogleDriveUrl, DEFAULT_CUSTOM_BEAT_PRICES, DEFAULT_STUDIO_RATES, getBeatLicensePrice } from '../types';
 import { FONT_OPTIONS, FontStyleType } from './FontSwitcher';
-import { GoogleDrivePickerModal } from './GoogleDrivePickerModal';
-import { DriveAudioFile } from '../services/googleDrive';
 // @ts-ignore
 import BEAT_COVER_DEFAULT from '../assets/images/aegis_beat_cover_1783897086619.jpg';
 
@@ -35,11 +33,6 @@ interface AdminPanelProps {
 
   currentFont?: FontStyleType;
   onSelectFont?: (font: FontStyleType) => void;
-  onShowNotification?: (message: string) => void;
-
-  onRestorePreviousData?: () => void;
-  onExportBackup?: () => void;
-  onImportBackup?: (file: File) => void;
 }
 
 export default function AdminPanel({
@@ -63,18 +56,10 @@ export default function AdminPanel({
   onUpdateCustomOrderStatus,
   onDeleteCustomOrder,
   currentFont = 'modern',
-  onSelectFont,
-  onShowNotification,
-  onRestorePreviousData,
-  onExportBackup,
-  onImportBackup
+  onSelectFont
 }: AdminPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'bookings' | 'beats' | 'custom_orders' | 'purchases' | 'projects' | 'settings' | 'backup'>('bookings');
-
-  // Google Drive Integration states
-  const [isDrivePickerOpen, setIsDrivePickerOpen] = useState(false);
-  const [driveImportedFileName, setDriveImportedFileName] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'bookings' | 'beats' | 'custom_orders' | 'purchases' | 'projects' | 'settings'>('bookings');
 
   // Form states
   const [beatForm, setBeatForm] = useState({
@@ -91,59 +76,6 @@ export default function AdminPanel({
     tags: 'heavy, trap, hard',
     audioUrl: ''
   });
-
-  const formAudioRef = useRef<HTMLAudioElement | null>(null);
-  const [formAudioPlaying, setFormAudioPlaying] = useState(false);
-
-  const toggleFormAudioPreview = () => {
-    if (!beatForm.audioUrl) return;
-    const playUrl = transformGoogleDriveUrl(beatForm.audioUrl);
-    
-    if (!formAudioRef.current) {
-      formAudioRef.current = new Audio(playUrl);
-      formAudioRef.current.onended = () => setFormAudioPlaying(false);
-      formAudioRef.current.onerror = () => {
-        setFormAudioPlaying(false);
-        if (onShowNotification) onShowNotification('Aviso: Áudio não reproduzível diretamente no navegador ou permissão restrita.');
-      };
-    } else if (formAudioRef.current.src !== playUrl) {
-      formAudioRef.current.pause();
-      formAudioRef.current = new Audio(playUrl);
-      formAudioRef.current.onended = () => setFormAudioPlaying(false);
-      formAudioRef.current.onerror = () => {
-        setFormAudioPlaying(false);
-        if (onShowNotification) onShowNotification('Aviso: Áudio não reproduzível diretamente no navegador ou permissão restrita.');
-      };
-    }
-
-    if (formAudioPlaying) {
-      formAudioRef.current.pause();
-      setFormAudioPlaying(false);
-    } else {
-      formAudioRef.current.play().then(() => {
-        setFormAudioPlaying(true);
-      }).catch(err => {
-        console.warn("Audio preview playback blocked or failed:", err);
-        setFormAudioPlaying(false);
-      });
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (formAudioRef.current) {
-        formAudioRef.current.pause();
-        formAudioRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (formAudioRef.current && beatForm.audioUrl && formAudioRef.current.src !== transformGoogleDriveUrl(beatForm.audioUrl)) {
-      formAudioRef.current.pause();
-      setFormAudioPlaying(false);
-    }
-  }, [beatForm.audioUrl]);
 
   const [projectForm, setProjectForm] = useState({
     title: '',
@@ -211,7 +143,6 @@ export default function AdminPanel({
 
   const handleCancelEditBeat = () => {
     setEditingBeatId(null);
-    setDriveImportedFileName(null);
     setBeatForm({
       title: '',
       producer: 'Omni Sounds',
@@ -227,41 +158,6 @@ export default function AdminPanel({
       audioUrl: ''
     });
   };
-
-  const handleDriveTrackSelected = (data: {
-    title: string;
-    audioUrl: string;
-    bpm: number;
-    scale: string;
-    genre: string;
-    tags: string[];
-    driveFile: DriveAudioFile;
-  }) => {
-    let mappedGenre = 'Trap';
-    const knownGenres = ['Trap', 'Boom Bap', 'Drill', 'R&B', 'Afrobeats'];
-    if (knownGenres.includes(data.genre)) {
-      mappedGenre = data.genre;
-    } else if (data.genre.toLowerCase().includes('afro')) {
-      mappedGenre = 'Afrobeats';
-    }
-
-    setBeatForm(prev => ({
-      ...prev,
-      title: data.title || prev.title,
-      audioUrl: data.audioUrl,
-      bpm: data.bpm || prev.bpm,
-      key: data.scale || prev.key,
-      genre: mappedGenre,
-      tags: data.tags.length > 0 ? data.tags.join(', ') : prev.tags
-    }));
-
-    setDriveImportedFileName(data.driveFile.name);
-
-    if (onShowNotification) {
-      onShowNotification(`🎵 "${data.title}" importado diretamente do Google Drive! Tags e parâmetros prontos.`);
-    }
-  };
-
 
   const [studioSettingsForm, setStudioSettingsForm] = useState<StudioSettings>({
     ...settings,
@@ -341,7 +237,6 @@ export default function AdminPanel({
         tags: 'heavy, trap, hard',
         audioUrl: ''
       });
-      setDriveImportedFileName(null);
     }
   };
 
@@ -417,32 +312,20 @@ export default function AdminPanel({
           <div className="w-full max-w-4xl bg-zinc-950 border-l border-zinc-900 h-full flex flex-col shadow-2xl relative">
             
             {/* Header */}
-            <div className="p-4 sm:p-6 border-b border-zinc-900 flex justify-between items-center bg-black/40 gap-3">
+            <div className="p-6 border-b border-zinc-900 flex justify-between items-center bg-black/40">
               <div>
                 <span className="text-[10px] uppercase font-mono font-bold text-amber-500 tracking-widest">Painel do Produtor</span>
-                <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2 mt-0.5">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2 mt-0.5">
                   <Sliders className="w-5 h-5 text-amber-500" />
                   Gerenciamento Omni Sounds
                 </h3>
               </div>
-              <div className="flex items-center gap-2">
-                {onRestorePreviousData && (
-                  <button
-                    onClick={onRestorePreviousData}
-                    className="bg-amber-500/10 hover:bg-amber-500 hover:text-black text-amber-400 border border-amber-500/30 px-3 py-1.5 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-                    title="Restaurar dados anteriores e catálogo de beats"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Restaurar Dados</span>
-                  </button>
-                )}
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white p-2 rounded-xl border border-zinc-800/80 transition-all cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white p-2 rounded-xl border border-zinc-800/80 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             {/* Navigation Tabs */}
@@ -506,17 +389,6 @@ export default function AdminPanel({
                 }`}
               >
                 Estúdio & Visual
-              </button>
-              <button
-                onClick={() => setActiveTab('backup')}
-                className={`py-2.5 sm:py-3 px-3 sm:px-4 text-[11px] sm:text-xs font-semibold uppercase tracking-wider border-b-2 transition-all flex-shrink-0 flex items-center gap-1.5 ${
-                  activeTab === 'backup'
-                    ? 'border-amber-500 text-amber-500 font-bold'
-                    : 'border-transparent text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <Database className="w-3.5 h-3.5" />
-                <span>Backup & Dados</span>
               </button>
             </div>
 
@@ -592,57 +464,17 @@ export default function AdminPanel({
                 <div className="space-y-6">
                   {/* Add New/Edit Beat Form */}
                   <form onSubmit={handleAddBeatSubmit} className="bg-zinc-900/40 border border-zinc-900 p-5 rounded-2xl space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-zinc-800/80">
-                      <h4 className="font-bold text-white text-sm flex items-center gap-1.5">
-                        {editingBeatId ? (
-                          <span className="flex items-center gap-1.5 text-amber-500 font-sans">
-                            <Edit3 className="w-4 h-4" /> Editar Beat do Catálogo
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1.5 text-zinc-100 font-sans">
-                            <Plus className="w-4 h-4 text-amber-500" /> Adicionar Novo Beat ao Catálogo
-                          </span>
-                        )}
-                      </h4>
-
-                      <button
-                        type="button"
-                        onClick={() => setIsDrivePickerOpen(true)}
-                        className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-black font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition-transform active:scale-95"
-                      >
-                        <HardDrive className="w-3.5 h-3.5" />
-                        <span>Importar do Google Drive</span>
-                      </button>
-                    </div>
-
-                    {/* Google Drive Fast Import Card */}
-                    <div className="p-3 bg-zinc-950/90 border border-amber-500/20 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-inner">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
-                          <HardDrive className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-zinc-200 flex items-center gap-2">
-                            <span>Google Drive Integrado</span>
-                            <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.2 rounded font-mono">
-                              Ativo
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-zinc-400">
-                            Importe o beat direto da sua conta. O título, BPM e tags são preenchidos automaticamente.
-                          </p>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setIsDrivePickerOpen(true)}
-                        className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-mono rounded-lg border border-zinc-700 flex items-center justify-center gap-1.5 transition-colors shrink-0"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Abrir Meus Beats no Drive</span>
-                      </button>
-                    </div>
+                    <h4 className="font-bold text-white text-sm flex items-center gap-1.5">
+                      {editingBeatId ? (
+                        <span className="flex items-center gap-1.5 text-amber-500 font-sans">
+                          <Edit3 className="w-4 h-4" /> Editar Beat do Catálogo
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5 text-zinc-100 font-sans">
+                          <Plus className="w-4 h-4 text-amber-500" /> Adicionar Novo Beat ao Catálogo
+                        </span>
+                      )}
+                    </h4>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
@@ -650,7 +482,7 @@ export default function AdminPanel({
                         <input
                           type="text"
                           placeholder="Ex: Legacy Empire"
-                          value={beatForm.title || ''}
+                          value={beatForm.title}
                           onChange={(e) => setBeatForm(prev => ({ ...prev, title: e.target.value }))}
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50"
                           required
@@ -662,7 +494,7 @@ export default function AdminPanel({
                         <input
                           type="text"
                           placeholder="Ex: Omni Sounds, Beatmaker X, Prod. Bernabé..."
-                          value={beatForm.producer || ''}
+                          value={beatForm.producer}
                           onChange={(e) => setBeatForm(prev => ({ ...prev, producer: e.target.value }))}
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50"
                           required
@@ -674,7 +506,7 @@ export default function AdminPanel({
                       <div>
                         <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono">Gênero</label>
                         <select
-                          value={beatForm.genre || 'Trap'}
+                          value={beatForm.genre}
                           onChange={(e) => setBeatForm(prev => ({ ...prev, genre: e.target.value }))}
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50"
                         >
@@ -690,7 +522,7 @@ export default function AdminPanel({
                         <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono">BPM (Andamento) *</label>
                         <input
                           type="number"
-                          value={beatForm.bpm ?? 120}
+                          value={beatForm.bpm}
                           onChange={(e) => setBeatForm(prev => ({ ...prev, bpm: Number(e.target.value) }))}
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
                         />
@@ -701,7 +533,7 @@ export default function AdminPanel({
                         <input
                           type="text"
                           placeholder="Ex: Am, G#m, Dm, C Menor"
-                          value={beatForm.key || ''}
+                          value={beatForm.key}
                           onChange={(e) => setBeatForm(prev => ({ ...prev, key: e.target.value }))}
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
                         />
@@ -724,7 +556,7 @@ export default function AdminPanel({
                           </label>
                           <input
                             type="number"
-                            value={beatForm.priceMp3 ?? 4000}
+                            value={beatForm.priceMp3}
                             onChange={(e) => setBeatForm(prev => ({ ...prev, priceMp3: Number(e.target.value) }))}
                             className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
                             placeholder="4000"
@@ -737,7 +569,7 @@ export default function AdminPanel({
                           </label>
                           <input
                             type="number"
-                            value={beatForm.priceBasic ?? 7000}
+                            value={beatForm.priceBasic}
                             onChange={(e) => setBeatForm(prev => ({ ...prev, priceBasic: Number(e.target.value) }))}
                             className="w-full bg-zinc-900 border border-amber-500/30 rounded-xl px-3 py-2 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
                             placeholder="7000"
@@ -750,7 +582,7 @@ export default function AdminPanel({
                           </label>
                           <input
                             type="number"
-                            value={beatForm.priceStems ?? 10000}
+                            value={beatForm.priceStems}
                             onChange={(e) => setBeatForm(prev => ({ ...prev, priceStems: Number(e.target.value) }))}
                             className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
                             placeholder="10000"
@@ -763,7 +595,7 @@ export default function AdminPanel({
                           </label>
                           <input
                             type="number"
-                            value={beatForm.priceExclusive ?? 15000}
+                            value={beatForm.priceExclusive}
                             onChange={(e) => setBeatForm(prev => ({ ...prev, priceExclusive: Number(e.target.value) }))}
                             className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
                             placeholder="15000"
@@ -780,7 +612,7 @@ export default function AdminPanel({
                         <input
                           type="url"
                           placeholder="Link da Imagem (ou deixe vazio para padrão)"
-                          value={beatForm.coverUrl || ''}
+                          value={beatForm.coverUrl}
                           onChange={(e) => setBeatForm(prev => ({ ...prev, coverUrl: e.target.value }))}
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50"
                         />
@@ -791,74 +623,26 @@ export default function AdminPanel({
                         <input
                           type="text"
                           placeholder="heavy, aggressive, dark"
-                          value={beatForm.tags || ''}
+                          value={beatForm.tags}
                           onChange={(e) => setBeatForm(prev => ({ ...prev, tags: e.target.value }))}
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
                         />
                       </div>
                     </div>
 
-                    <div className="space-y-2 bg-zinc-950/70 p-3.5 rounded-xl border border-zinc-800/80">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-                        <label className="text-xs font-semibold text-zinc-300 uppercase font-mono flex items-center gap-1.5">
-                          <Music className="w-3.5 h-3.5 text-amber-500" /> Áudio da Música / Demonstração *
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => setIsDrivePickerOpen(true)}
-                          className="inline-flex items-center gap-1.5 text-[11px] font-mono text-amber-400 hover:text-amber-300 transition-colors bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1 rounded-lg border border-amber-500/30"
-                        >
-                          <HardDrive className="w-3 h-3" />
-                          <span>Selecionar do Google Drive</span>
-                        </button>
-                      </div>
-
+                    <div className="space-y-1">
+                      <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono flex items-center gap-1">
+                        <Music className="w-3.5 h-3.5 text-amber-500" /> Link de Áudio / Demonstração (Drive ou YouTube)
+                      </label>
                       <input
                         type="url"
-                        placeholder="Insira URL direta ou selecione acima pelo Google Drive"
-                        value={beatForm.audioUrl || ''}
+                        placeholder="Insira URL do áudio no Google Drive ou link de vídeo/áudio do YouTube"
+                        value={beatForm.audioUrl}
                         onChange={(e) => setBeatForm(prev => ({ ...prev, audioUrl: e.target.value }))}
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50"
                       />
-
-                      {beatForm.audioUrl && (
-                        <div className="flex items-center justify-between p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <button
-                              type="button"
-                              onClick={toggleFormAudioPreview}
-                              className="w-8 h-8 rounded-lg bg-amber-500 hover:bg-amber-400 text-black flex items-center justify-center shrink-0 font-bold transition-transform active:scale-95 shadow-md"
-                              title={formAudioPlaying ? "Pausar áudio" : "Tocar prévia deste áudio"}
-                            >
-                              {formAudioPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
-                            </button>
-                            <div className="min-w-0">
-                              <span className="text-[11px] font-mono text-zinc-200 block truncate">
-                                {formAudioPlaying ? "A reproduzir áudio da música..." : "Ouvir áudio deste beat"}
-                              </span>
-                              <span className="text-[10px] text-zinc-500 font-mono truncate block">
-                                {driveImportedFileName ? `Google Drive: ${driveImportedFileName}` : beatForm.audioUrl.slice(0, 50)}
-                              </span>
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 shrink-0">
-                            Pronto para Tocar
-                          </span>
-                        </div>
-                      )}
-
-                      {driveImportedFileName && !beatForm.audioUrl && (
-                        <div className="flex items-center justify-between p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400 text-[11px] font-mono">
-                          <div className="flex items-center gap-2 truncate">
-                            <Check className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">Áudio do Google Drive: <strong>{driveImportedFileName}</strong></span>
-                          </div>
-                          <span className="text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded text-emerald-300 shrink-0 ml-2">Sincronizado</span>
-                        </div>
-                      )}
-
                       <p className="text-[10px] text-zinc-500 italic">
-                        Ao selecionar do Google Drive, o arquivo é vinculado diretamente ao sistema e o áudio fica pronto para reprodução.
+                        Permite a reprodução direta e em tempo real do beat a partir do Google Drive ou do YouTube.
                       </p>
                     </div>
 
@@ -958,7 +742,7 @@ export default function AdminPanel({
                         <input
                           type="text"
                           placeholder="Ex: O Legado Não Morre"
-                          value={projectForm.title || ''}
+                          value={projectForm.title}
                           onChange={(e) => setProjectForm(prev => ({ ...prev, title: e.target.value }))}
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50"
                           required
@@ -970,7 +754,7 @@ export default function AdminPanel({
                         <input
                           type="text"
                           placeholder="Ex: MC Kronos"
-                          value={projectForm.artist || ''}
+                          value={projectForm.artist}
                           onChange={(e) => setProjectForm(prev => ({ ...prev, artist: e.target.value }))}
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50"
                           required
@@ -982,7 +766,7 @@ export default function AdminPanel({
                       <div>
                         <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono">Tipo</label>
                         <select
-                          value={projectForm.type || 'Single'}
+                          value={projectForm.type}
                           onChange={(e) => setProjectForm(prev => ({ ...prev, type: e.target.value }))}
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50"
                         >
@@ -998,7 +782,7 @@ export default function AdminPanel({
                         <input
                           type="text"
                           placeholder="Código de vídeo ou link"
-                          value={projectForm.youtubeId || ''}
+                          value={projectForm.youtubeId}
                           onChange={(e) => setProjectForm(prev => ({ ...prev, youtubeId: e.target.value }))}
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
                           required
@@ -1010,7 +794,7 @@ export default function AdminPanel({
                         <input
                           type="url"
                           placeholder="URL da pasta de áudios"
-                          value={projectForm.driveFolderUrl || ''}
+                          value={projectForm.driveFolderUrl}
                           onChange={(e) => setProjectForm(prev => ({ ...prev, driveFolderUrl: e.target.value }))}
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
                         />
@@ -1023,7 +807,7 @@ export default function AdminPanel({
                         <input
                           type="url"
                           placeholder="https://exemplo.com/capa.jpg"
-                          value={projectForm.coverImage || ''}
+                          value={projectForm.coverImage}
                           onChange={(e) => setProjectForm(prev => ({ ...prev, coverImage: e.target.value }))}
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50"
                         />
@@ -1033,7 +817,7 @@ export default function AdminPanel({
                         <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono">Ano de Lançamento</label>
                         <input
                           type="text"
-                          value={projectForm.releaseDate || ''}
+                          value={projectForm.releaseDate}
                           onChange={(e) => setProjectForm(prev => ({ ...prev, releaseDate: e.target.value }))}
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
                         />
@@ -1117,7 +901,7 @@ export default function AdminPanel({
                       <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono">Nome do Estúdio</label>
                       <input
                         type="text"
-                        value={studioSettingsForm.studioName || ''}
+                        value={studioSettingsForm.studioName}
                         onChange={(e) => setStudioSettingsForm(prev => ({ ...prev, studioName: e.target.value }))}
                         className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50"
                       />
@@ -1127,7 +911,7 @@ export default function AdminPanel({
                       <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono">Slogan</label>
                       <input
                         type="text"
-                        value={studioSettingsForm.slogan || ''}
+                        value={studioSettingsForm.slogan}
                         onChange={(e) => setStudioSettingsForm(prev => ({ ...prev, slogan: e.target.value }))}
                         className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50"
                       />
@@ -1138,7 +922,7 @@ export default function AdminPanel({
                     <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono">Sobre o Estúdio</label>
                     <textarea
                       rows={3}
-                      value={studioSettingsForm.aboutText || ''}
+                      value={studioSettingsForm.aboutText}
                       onChange={(e) => setStudioSettingsForm(prev => ({ ...prev, aboutText: e.target.value }))}
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 resize-none"
                     />
@@ -1149,7 +933,7 @@ export default function AdminPanel({
                       <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono">E-mail de Contato</label>
                       <input
                         type="email"
-                        value={studioSettingsForm.contactEmail || ''}
+                        value={studioSettingsForm.contactEmail}
                         onChange={(e) => setStudioSettingsForm(prev => ({ ...prev, contactEmail: e.target.value }))}
                         className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
                       />
@@ -1159,7 +943,7 @@ export default function AdminPanel({
                       <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono">Telemóvel Comercial</label>
                       <input
                         type="text"
-                        value={studioSettingsForm.contactPhone || ''}
+                        value={studioSettingsForm.contactPhone}
                         onChange={(e) => setStudioSettingsForm(prev => ({ ...prev, contactPhone: e.target.value }))}
                         className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
                       />
@@ -1171,7 +955,7 @@ export default function AdminPanel({
                       <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono">Instagram (Link Completo)</label>
                       <input
                         type="url"
-                        value={studioSettingsForm.instagramUrl || ''}
+                        value={studioSettingsForm.instagramUrl}
                         onChange={(e) => setStudioSettingsForm(prev => ({ ...prev, instagramUrl: e.target.value }))}
                         className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
                       />
@@ -1181,7 +965,7 @@ export default function AdminPanel({
                       <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono">YouTube Canal (Link)</label>
                       <input
                         type="url"
-                        value={studioSettingsForm.youtubeUrl || ''}
+                        value={studioSettingsForm.youtubeUrl}
                         onChange={(e) => setStudioSettingsForm(prev => ({ ...prev, youtubeUrl: e.target.value }))}
                         className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
                       />
@@ -1191,7 +975,7 @@ export default function AdminPanel({
                       <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono">Pasta Drive Portfólio Geral</label>
                       <input
                         type="url"
-                        value={studioSettingsForm.drivePortfolioUrl || ''}
+                        value={studioSettingsForm.drivePortfolioUrl}
                         onChange={(e) => setStudioSettingsForm(prev => ({ ...prev, drivePortfolioUrl: e.target.value }))}
                         className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
                       />
@@ -1532,7 +1316,7 @@ export default function AdminPanel({
                     <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono">Endereço do Estúdio</label>
                     <input
                       type="text"
-                      value={studioSettingsForm.address || ''}
+                      value={studioSettingsForm.address}
                       onChange={(e) => setStudioSettingsForm(prev => ({ ...prev, address: e.target.value }))}
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50"
                     />
@@ -1889,122 +1673,6 @@ export default function AdminPanel({
                 </div>
               )}
 
-              {/* TAB: BACKUP & DATA RECOVERY */}
-              {activeTab === 'backup' && (
-                <div className="space-y-6">
-                  <div>
-                    <h4 className="font-bold text-white text-base flex items-center gap-2">
-                      <Database className="w-5 h-5 text-amber-500" />
-                      Segurança, Backup & Recuperação de Dados
-                    </h4>
-                    <p className="text-zinc-400 text-xs mt-1">
-                      Gerencie a integridade do catálogo musical, sincronização em nuvem com o Firebase Firestore e salvaguarda local de emergência.
-                    </p>
-                  </div>
-
-                  {/* Overview Cards */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3.5">
-                      <span className="text-[10px] font-mono text-zinc-500 uppercase block">Beats Ativos</span>
-                      <span className="text-xl font-bold font-mono text-amber-400 mt-1 block">{beats.length}</span>
-                    </div>
-                    <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3.5">
-                      <span className="text-[10px] font-mono text-zinc-500 uppercase block">Projetos Portfólio</span>
-                      <span className="text-xl font-bold font-mono text-white mt-1 block">{projects.length}</span>
-                    </div>
-                    <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3.5">
-                      <span className="text-[10px] font-mono text-zinc-500 uppercase block">Agendamentos</span>
-                      <span className="text-xl font-bold font-mono text-white mt-1 block">{bookings.length}</span>
-                    </div>
-                    <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3.5">
-                      <span className="text-[10px] font-mono text-zinc-500 uppercase block">Encomendas / Vendas</span>
-                      <span className="text-xl font-bold font-mono text-emerald-400 mt-1 block">{customOrders.length + purchases.length}</span>
-                    </div>
-                  </div>
-
-                  {/* Primary Recovery Action Card */}
-                  <div className="bg-gradient-to-br from-amber-500/10 via-zinc-900 to-zinc-900 border border-amber-500/30 rounded-2xl p-5 sm:p-6 space-y-4">
-                    <div className="flex items-start gap-3.5">
-                      <div className="p-3 bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-400 flex-shrink-0">
-                        <RotateCcw className="w-6 h-6" />
-                      </div>
-                      <div className="space-y-1">
-                        <h5 className="font-bold text-white text-sm sm:text-base">
-                          Restaurar Catálogo e Dados Anteriores
-                        </h5>
-                        <p className="text-zinc-400 text-xs leading-relaxed">
-                          Se você perdeu dados ou conectou um banco de dados novo do Firebase e o catálogo ficou vazio, este botão restaura imediatamente todos os instrumentais originais (<strong className="text-zinc-200">Omni Anthem, Midnight Legacy, Drill Protocol, Golden Waves</strong>), projetos em vídeo do portfólio, configurações de contato e dados prévios salvos, sincronizando-os diretamente na nuvem.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 flex flex-wrap gap-3">
-                      {onRestorePreviousData && (
-                        <button
-                          onClick={onRestorePreviousData}
-                          className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-extrabold px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider font-mono cursor-pointer transition-all shadow-lg shadow-amber-500/20 flex items-center gap-2 hover:scale-[1.02]"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                          <span>Restaurar Catálogo e Sincronizar Tudo</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Manual Backup Export / Import */}
-                  <div className="bg-zinc-900/50 border border-zinc-850 rounded-2xl p-5 space-y-4">
-                    <h5 className="font-bold text-white text-sm flex items-center gap-2">
-                      <Database className="w-4 h-4 text-zinc-400" />
-                      Exportação & Importação de Arquivos de Segurança (JSON)
-                    </h5>
-                    <p className="text-zinc-400 text-xs">
-                      Descarregue uma cópia off-line completa com todos os seus beats, preços, projetos e encomendas para guardar em seu computador ou importar em qualquer momento.
-                    </p>
-
-                    <div className="flex flex-wrap gap-3 pt-1">
-                      {onExportBackup && (
-                        <button
-                          onClick={onExportBackup}
-                          className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
-                        >
-                          <Download className="w-4 h-4 text-amber-400" />
-                          <span>Exportar Backup (.json)</span>
-                        </button>
-                      )}
-
-                      {onImportBackup && (
-                        <label className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer">
-                          <Upload className="w-4 h-4 text-amber-400" />
-                          <span>Importar Arquivo (.json)</span>
-                          <input
-                            type="file"
-                            accept=".json"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                onImportBackup(file);
-                                e.target.value = '';
-                              }
-                            }}
-                          />
-                        </label>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Cloud Status Info */}
-                  <div className="bg-black/40 border border-zinc-900 rounded-xl p-4 text-xs font-mono space-y-1.5 text-zinc-500">
-                    <div className="flex items-center gap-2 text-zinc-400">
-                      <Shield className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="font-bold text-zinc-300">Firebase Firestore Sincronizado</span>
-                    </div>
-                    <p className="text-[11px]">Banco: <span className="text-zinc-400">ai-studio-aegissoundlab-9f8e4aba-34a2-472f-af9c-85811b162fe7</span></p>
-                    <p className="text-[11px]">Armazenamento Local Dual: <span className="text-zinc-400">aegis_* + omni_* + backups automáticos</span></p>
-                  </div>
-                </div>
-              )}
-
             </div>
 
             {/* Sticky Footnote */}
@@ -2015,12 +1683,6 @@ export default function AdminPanel({
           </div>
         </div>
       )}
-      {/* Google Drive Audio Picker Modal */}
-      <GoogleDrivePickerModal
-        isOpen={isDrivePickerOpen}
-        onClose={() => setIsDrivePickerOpen(false)}
-        onSelectTrack={handleDriveTrackSelected}
-      />
     </>
   );
 }
