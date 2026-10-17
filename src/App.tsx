@@ -5,7 +5,7 @@ import {
   LogIn, LogOut, User, X, Plus, ArrowLeft, Type, Clock, Lock, ShieldCheck, Cloud
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { signInWithPopup, signOut, onAuthStateChanged, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, GoogleAuthProvider } from 'firebase/auth';
 import { 
   collection, 
   doc, 
@@ -245,31 +245,39 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Complete Google sign-in after returning from Firebase's redirect flow.
+  // Redirect is more reliable than popups on mobile browsers and in-app browsers.
+  useEffect(() => {
+    let active = true;
+    getRedirectResult(auth)
+      .then((result) => {
+        if (!active || !result) return;
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        if (credential?.accessToken) setCachedGoogleToken(credential.accessToken);
+        setIsLoginModalOpen(false);
+        showNotification(`Sessão iniciada como ${result.user.displayName || result.user.email || 'utilizador Google'}.`);
+      })
+      .catch((error: any) => {
+        console.error('Erro ao concluir autenticação Google:', error);
+        const code = error?.code || '';
+        if (code) showNotification(`Não foi possível concluir o login (${code}). Verifica o domínio autorizado no Firebase.`);
+      });
+    return () => { active = false; };
+  }, []);
+
   const handleGoogleSignIn = async () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      if (credential?.accessToken) {
-        setCachedGoogleToken(credential.accessToken);
-      }
-      const user = result.user;
-      if (user) {
-        const lowerEmail = user.email ? user.email.toLowerCase() : '';
-        if (lowerEmail === 'pascoalbernabe678@gamail.com' || lowerEmail === 'pascoalbernabe678@gmail.com') {
-          showNotification('🎉 Bem-vindo de volta, Produtor Pascoal! Google Drive e Painel administrativo sincronizados.');
-        } else {
-          showNotification(`Sessão iniciada como ${user.displayName || user.email} com Google Drive integrado.`);
-        }
-        setIsLoginModalOpen(false);
-      }
+      // Use redirect instead of popup so the flow works on Android/mobile browsers.
+      await signInWithRedirect(auth, googleProvider);
     } catch (error: any) {
-      console.error("Erro no login com Google:", error);
-      showNotification(`Erro de autenticação: ${error.message || 'tente novamente.'}`);
+      console.error('Erro ao iniciar login com Google:', error);
+      const code = error?.code || error?.message || 'erro desconhecido';
+      showNotification(`Não foi possível iniciar o login (${code}). Confirma o domínio autorizado e o fornecedor Google no Firebase.`);
     }
   };
 
   // Derive Admin Access
-  const isAdmin = userEmail !== null && (
+  const isAdmin = auth.currentUser?.emailVerified === true && userEmail !== null && (
     userEmail.trim().toLowerCase() === 'pascoalbernabe678@gamail.com' ||
     userEmail.trim().toLowerCase() === 'pascoalbernabe678@gmail.com'
   );
@@ -1855,85 +1863,12 @@ Aguardo a confirmação e detalhes de início da produção!`;
                 </p>
               </div>
 
-              {/* Separator */}
-              <div className="relative flex items-center justify-center py-1">
-                <div className="absolute inset-x-0 h-px bg-zinc-900" />
-                <span className="relative bg-zinc-950 px-3 text-[10px] font-mono text-zinc-500 uppercase">Ou Aceder com E-mail</span>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-center">
+                <p className="text-xs leading-relaxed text-zinc-300">
+                  Para proteger a conta e o painel administrativo, o acesso é feito através da autenticação oficial do Google.
+                  Não introduzas uma palavra-passe neste site.
+                </p>
               </div>
-
-              {/* Form */}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const form = e.currentTarget;
-                  const formData = new FormData(form);
-                  const emailVal = (formData.get('email') as string || '').trim();
-                  const passwordVal = (formData.get('password') as string || '').trim();
-                  if (!emailVal) return;
-
-                  const normalizedEmail = emailVal.toLowerCase();
-                  const isAdminEmail = normalizedEmail === 'pascoalbernabe678@gamail.com' || normalizedEmail === 'pascoalbernabe678@gmail.com';
-
-                  if (isAdminEmail) {
-                    if (passwordVal !== 'omni2026' && passwordVal !== 'aegis2026') {
-                      showNotification('❌ Palavra-passe incorreta para a conta de Administrador.');
-                      return;
-                    }
-                    setUserEmail(emailVal);
-                    setIsLoginModalOpen(false);
-                    showNotification('🎉 Sessão de Administrador iniciada com sucesso. Painel liberado.');
-                  } else {
-                    setUserEmail(emailVal);
-                    setIsLoginModalOpen(false);
-                    showNotification(`Sessão iniciada como ${emailVal}.`);
-                  }
-                }}
-                className="space-y-4 text-left"
-              >
-                {/* Email Field */}
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block font-mono">
-                    Endereço de E-mail
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                    <input
-                      name="email"
-                      type="email"
-                      required
-                      autoComplete="off"
-                      placeholder="seu-email@dominio.com"
-                      className="w-full bg-zinc-900/60 border border-zinc-900 rounded-xl pl-11 pr-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-amber-500/50 transition-colors"
-                    />
-                  </div>
-                </div>
-
-                {/* Password Field */}
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block font-mono">
-                    Palavra-passe (Opcional)
-                  </label>
-                  <div className="relative">
-                    <Shield className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                    <input
-                      name="password"
-                      type="password"
-                      autoComplete="new-password"
-                      placeholder="••••••••"
-                      className="w-full bg-zinc-900/60 border border-zinc-900 rounded-xl pl-11 pr-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-amber-500/50 transition-colors"
-                    />
-                  </div>
-                </div>
-
-                {/* Submit Button */}
-                <button
-                  type="submit"
-                  className="w-full bg-amber-500 hover:bg-amber-400 text-black font-extrabold py-3.5 rounded-xl shadow-lg shadow-amber-500/10 transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer font-mono"
-                >
-                  <LogIn className="w-4 h-4" />
-                  <span>Entrar com E-mail</span>
-                </button>
-              </form>
 
               {/* Helper Footer */}
               <div className="text-center pt-1">
