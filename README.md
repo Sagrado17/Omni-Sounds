@@ -18,3 +18,13 @@ View your app in AI Studio: https://ai.studio/apps/9f8e4aba-34a2-472f-af9c-85811
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+
+## Omni Sounds Firebase/authentication notes
+
+- `firebase-applet-config.json` points to the `omni-sounds` Firebase project and its default Firestore database. This code change does not copy/import data from the previous project.
+- Google login now uses Firebase `signInWithRedirect` and processes the return with `getRedirectResult`, which is more suitable for mobile browsers than a popup-only flow.
+- The fake email/password login has been removed. Administrator access requires a real Firebase-authenticated, verified Google account whose email is explicitly allowed in `src/App.tsx` and `firestore.rules`.
+- `firestore.rules` contains stricter validation for booking, purchase, and custom-beat requests. Rules in this ZIP are not automatically deployed by Vercel; publish them in Firebase Console > Firestore Database > Rules.
+- In Firebase Console > Authentication > Settings > Authorized domains, add the exact production domain `omni-sounds.vercel.app` (and any other domain you actually use). In Authentication > Sign-in method, enable Google.
+- After deploying the source to Vercel, test Google sign-in on the production URL. A source ZIP cannot confirm your Firebase console settings, Vercel deployment, OAuth consent configuration, or live database rules.

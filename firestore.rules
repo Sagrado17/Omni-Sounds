@@ -13,12 +13,26 @@ service cloud.firestore {
     }
 
     function isVerifiedEmail(email) {
-      return email.lower() == 'pascoalbernabe678@gmail.com' || email.lower() == 'pascoalbernabe678@gamail.com';
+      return email is string &&
+             (email.lower() == 'pascoalbernabe678@gmail.com' ||
+              email.lower() == 'pascoalbernabe678@gamail.com');
     }
 
     function isAdmin() {
       return isSignedIn() &&
+             request.auth.token.email_verified == true &&
              isVerifiedEmail(request.auth.token.email);
+    }
+
+    function hasValidClientFields() {
+      return request.resource.data.clientName is string &&
+             request.resource.data.clientName.size() > 0 &&
+             request.resource.data.clientName.size() <= 100 &&
+             request.resource.data.clientEmail is string &&
+             request.resource.data.clientEmail.size() <= 100 &&
+             request.resource.data.clientPhone is string &&
+             request.resource.data.clientPhone.size() <= 40 &&
+             request.resource.data.status == 'Pendente';
     }
 
     function isValidId(id) {
@@ -71,10 +85,15 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if isValidId(bookingId) &&
                     request.resource.data.id == bookingId &&
-                    request.resource.data.clientName is string &&
-                    request.resource.data.clientName.size() <= 100 &&
-                    (!('clientEmail' in request.resource.data) || (request.resource.data.clientEmail is string && request.resource.data.clientEmail.size() <= 100)) &&
-                    request.resource.data.status == 'Pendente';
+                    hasValidClientFields() &&
+                    request.resource.data.serviceType is string &&
+                    request.resource.data.serviceType.size() <= 60 &&
+                    request.resource.data.date is string &&
+                    request.resource.data.date.size() <= 40 &&
+                    request.resource.data.timeSlot is string &&
+                    request.resource.data.timeSlot.size() <= 40 &&
+                    request.resource.data.estimatedCost is number &&
+                    (!('notes' in request.resource.data) || (request.resource.data.notes is string && request.resource.data.notes.size() <= 1000));
       allow update, delete: if isAdmin() && isValidId(bookingId);
     }
 
@@ -83,10 +102,12 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if isValidId(purchaseId) &&
                     request.resource.data.id == purchaseId &&
-                    request.resource.data.clientName is string &&
-                    request.resource.data.clientName.size() <= 100 &&
-                    (!('clientEmail' in request.resource.data) || (request.resource.data.clientEmail is string && request.resource.data.clientEmail.size() <= 100)) &&
-                    request.resource.data.status == 'Pendente';
+                    hasValidClientFields() &&
+                    request.resource.data.beatId is string && request.resource.data.beatId.size() <= 128 &&
+                    request.resource.data.beatTitle is string && request.resource.data.beatTitle.size() <= 150 &&
+                    request.resource.data.licenseType is string && request.resource.data.licenseType.size() <= 40 &&
+                    request.resource.data.pricePaid is number && request.resource.data.pricePaid >= 0 &&
+                    request.resource.data.timestamp is number;
       allow update, delete: if isAdmin() && isValidId(purchaseId);
     }
 
@@ -95,14 +116,17 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if isValidId(orderId) &&
                     request.resource.data.id == orderId &&
-                    request.resource.data.clientName is string &&
-                    request.resource.data.clientName.size() <= 100 &&
-                    (!('clientEmail' in request.resource.data) || (request.resource.data.clientEmail is string && request.resource.data.clientEmail.size() <= 100)) &&
-                    request.resource.data.genre is string &&
-                    request.resource.data.genre.size() <= 60 &&
-                    request.resource.data.referenceSongName is string &&
-                    request.resource.data.referenceSongName.size() <= 200 &&
-                    request.resource.data.status == 'Pendente';
+                    hasValidClientFields() &&
+                    request.resource.data.genre is string && request.resource.data.genre.size() <= 60 &&
+                    (request.resource.data.bpm is string || request.resource.data.bpm is number) &&
+                    request.resource.data.referenceSongName is string && request.resource.data.referenceSongName.size() <= 200 &&
+                    request.resource.data.beatDuration is string && request.resource.data.beatDuration.size() <= 40 &&
+                    request.resource.data.hasVocal is bool &&
+                    request.resource.data.licenseType is string && request.resource.data.licenseType.size() <= 40 &&
+                    request.resource.data.licensePrice is number && request.resource.data.licensePrice >= 0 &&
+                    request.resource.data.timestamp is number &&
+                    (!('referenceSongUrl' in request.resource.data) || (request.resource.data.referenceSongUrl is string && request.resource.data.referenceSongUrl.size() <= 500)) &&
+                    (!('notes' in request.resource.data) || (request.resource.data.notes is string && request.resource.data.notes.size() <= 1000));
       allow update, delete: if isAdmin() && isValidId(orderId);
     }
   }
