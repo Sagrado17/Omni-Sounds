@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Sparkles, Disc, Send, X, AlertTriangle, Music, Sliders, CheckCircle2, MessageCircle, Clock, Link as LinkIcon, Mic2, Layers, Shield, Check, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { Sparkles, Disc, Send, X, AlertTriangle, Music, Sliders, CheckCircle2, MessageCircle, Clock, Link as LinkIcon, Mic2, Layers, Shield, Check, ChevronDown, ChevronUp, Info, Cloud } from 'lucide-react';
 import { CustomBeatOrder, StudioSettings, DEFAULT_CUSTOM_BEAT_PRICES, CustomBeatLicensePrices } from '../types';
+import GoogleDriveUploader from './GoogleDriveUploader';
 
 interface CustomBeatOrderModalProps {
   isOpen: boolean;
@@ -845,21 +846,13 @@ Aguardo a vossa confirmação e proposta para darmos início à produção! Obri
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-                      <LinkIcon className="w-3 h-3 text-zinc-400" />
-                      <span>Link da Música de Referência</span>
-                    </label>
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase bg-zinc-800/80 px-2 py-0.5 rounded">
-                      Opcional
-                    </span>
-                  </div>
-                  <input
-                    type="url"
-                    placeholder="Ex: https://youtube.com/watch?v=... ou link do Spotify / Soundcloud"
+                  <GoogleDriveUploader
+                    label="Ficheiro / Áudio de Referência (Música ou Guia)"
+                    mediaType="audio"
                     value={referenceSongUrl}
-                    onChange={(e) => setReferenceSongUrl(e.target.value)}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 placeholder:text-zinc-600 font-mono text-[11px]"
+                    onChange={(url) => setReferenceSongUrl(url)}
+                    placeholder="Link da música (YouTube, Drive) ou selecione da galeria"
+                    helperText="Pode selecionar da galeria ou ficheiros locais. O upload é enviado diretamente para o Google Drive."
                   />
                 </div>
               </div>
@@ -900,6 +893,20 @@ Aguardo a vossa confirmação e proposta para darmos início à produção! Obri
                   {hasVocal && <CheckCircle2 className="w-4 h-4 stroke-[3px]" />}
                 </div>
               </div>
+
+              {/* If user has vocal audio, offer instant Google Drive upload */}
+              {hasVocal && (
+                <div className="pt-1">
+                  <GoogleDriveUploader
+                    label="Upload da sua Gravação de Voz / Guia (Google Drive)"
+                    mediaType="audio"
+                    value={referenceSongUrl.includes('drive.google.com') || referenceSongUrl.includes('docs.google.com') ? referenceSongUrl : ''}
+                    onChange={(url) => setReferenceSongUrl(url)}
+                    placeholder="Link do áudio no Google Drive ou envie da galeria"
+                    helperText="Envie a sua gravação de voz (MP3, WAV, M4A) direto para o Google Drive para o produtor ouvir."
+                  />
+                </div>
+              )}
 
               {/* Extra Notes */}
               <div>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Plus, CheckCircle, Trash2, Edit3, X, Sliders, Calendar, Music, Disc, Link2, Type, Check, Sparkles, Mic2, Clock, MessageCircle, ExternalLink, Shield, Layers, DollarSign, Image as ImageIcon } from 'lucide-react';
+import { Settings, Plus, CheckCircle, Trash2, Edit3, X, Sliders, Calendar, Music, Disc, Link2, Type, Check, Sparkles, Mic2, Clock, MessageCircle, ExternalLink, Shield, Layers, DollarSign, Image as ImageIcon, Cloud } from 'lucide-react';
 import { Beat, StudioSession, StudioProject, StudioSettings, BeatPurchase, CustomBeatOrder, transformGoogleDriveUrl, DEFAULT_CUSTOM_BEAT_PRICES, DEFAULT_STUDIO_RATES, getBeatLicensePrice } from '../types';
 import { FONT_OPTIONS, FontStyleType } from './FontSwitcher';
+import GoogleDriveUploader from './GoogleDriveUploader';
 // @ts-ignore
 import BEAT_COVER_DEFAULT from '../assets/images/aegis_beat_cover_1783897086619.jpg';
 
@@ -604,46 +605,39 @@ export default function AdminPanel({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono flex items-center gap-1">
-                          <Link2 className="w-3.5 h-3.5 text-amber-500" /> Link Capa/Drive/URL
-                        </label>
-                        <input
-                          type="url"
-                          placeholder="Link da Imagem (ou deixe vazio para padrão)"
-                          value={beatForm.coverUrl}
-                          onChange={(e) => setBeatForm(prev => ({ ...prev, coverUrl: e.target.value }))}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono">Tags (separadas por vírgula)</label>
-                        <input
-                          type="text"
-                          placeholder="heavy, aggressive, dark"
-                          value={beatForm.tags}
-                          onChange={(e) => setBeatForm(prev => ({ ...prev, tags: e.target.value }))}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono flex items-center gap-1">
-                        <Music className="w-3.5 h-3.5 text-amber-500" /> Link de Áudio / Demonstração (Drive ou YouTube)
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="Insira URL do áudio no Google Drive ou link de vídeo/áudio do YouTube"
+                    <div className="space-y-4">
+                      {/* Beat Audio File with Google Drive Integration */}
+                      <GoogleDriveUploader
+                        label="Áudio / Demonstração do Beat (Música MP3/WAV)"
+                        mediaType="audio"
                         value={beatForm.audioUrl}
-                        onChange={(e) => setBeatForm(prev => ({ ...prev, audioUrl: e.target.value }))}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50"
+                        onChange={(url) => setBeatForm(prev => ({ ...prev, audioUrl: url }))}
+                        placeholder="Link do áudio no Google Drive ou envie da galeria/dispositivo"
+                        helperText="Selecione o arquivo de música (.mp3, .wav) da sua galeria ou arquivos. O envio é feito diretamente para o seu Google Drive e o áudio é reproduzido no site."
                       />
-                      <p className="text-[10px] text-zinc-500 italic">
-                        Permite a reprodução direta e em tempo real do beat a partir do Google Drive ou do YouTube.
-                      </p>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Beat Cover Image with Google Drive Integration */}
+                        <GoogleDriveUploader
+                          label="Capa do Beat (Foto / Arte)"
+                          mediaType="image"
+                          value={beatForm.coverUrl}
+                          onChange={(url) => setBeatForm(prev => ({ ...prev, coverUrl: url }))}
+                          placeholder="Link da imagem ou envie da galeria para o Google Drive"
+                          helperText="Selecione a arte da capa da galeria. Vai direto para o Google Drive e é exibida no catálogo de beats."
+                        />
+
+                        <div>
+                          <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono">Tags (separadas por vírgula)</label>
+                          <input
+                            type="text"
+                            placeholder="heavy, aggressive, dark"
+                            value={beatForm.tags}
+                            onChange={(e) => setBeatForm(prev => ({ ...prev, tags: e.target.value }))}
+                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex justify-end gap-2 pt-2">
@@ -790,26 +784,26 @@ export default function AdminPanel({
                       </div>
 
                       <div className="col-span-2 md:col-span-1">
-                        <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono">Pasta Google Drive</label>
-                        <input
-                          type="url"
-                          placeholder="URL da pasta de áudios"
+                        <GoogleDriveUploader
+                          label="Ficheiro / Pasta Google Drive"
+                          mediaType="any"
                           value={projectForm.driveFolderUrl}
-                          onChange={(e) => setProjectForm(prev => ({ ...prev, driveFolderUrl: e.target.value }))}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
+                          onChange={(url) => setProjectForm(prev => ({ ...prev, driveFolderUrl: url }))}
+                          placeholder="URL da pasta ou envie ficheiro para o Google Drive"
+                          helperText="Envie stems, faixas ou arquivo direto para o Google Drive."
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="md:col-span-2">
-                        <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase font-mono">URL Capa do Projeto / Imagem</label>
-                        <input
-                          type="url"
-                          placeholder="https://exemplo.com/capa.jpg"
+                        <GoogleDriveUploader
+                          label="Capa do Projeto / Foto (Google Drive)"
+                          mediaType="image"
                           value={projectForm.coverImage}
-                          onChange={(e) => setProjectForm(prev => ({ ...prev, coverImage: e.target.value }))}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50"
+                          onChange={(url) => setProjectForm(prev => ({ ...prev, coverImage: url }))}
+                          placeholder="https://... ou envie foto da galeria"
+                          helperText="Envie a foto de capa do projeto diretamente da galeria para o Google Drive."
                         />
                       </div>
 
@@ -983,6 +977,7 @@ export default function AdminPanel({
                   </div>
 
                   {/* Logotipo Oficial da Marca (Google Drive ou Link Web) */}
+                  {/* Logotipo Oficial da Marca (Google Drive) */}
                   <div className="bg-zinc-950 border border-zinc-800/80 p-4 rounded-xl space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -993,39 +988,17 @@ export default function AdminPanel({
                     </div>
 
                     <p className="text-[11px] text-zinc-400 leading-relaxed">
-                      Insira o link de compartilhamento ou visualização da imagem do seu logotipo no <strong>Google Drive</strong> (ou URL de imagem direta). O sistema converte automaticamente o link do Drive e atualiza o seu logotipo oficial no cabeçalho e no rodapé do site.
+                      Selecione a imagem do logotipo da sua galeria ou arquivos. O upload é realizado diretamente para o seu <strong>Google Drive</strong> e atualiza o cabeçalho e rodapé do site instantaneamente.
                     </p>
 
-                    <div className="flex flex-col sm:flex-row gap-3 items-start">
-                      <div className="flex-1 w-full">
-                        <input
-                          type="url"
-                          placeholder="https://drive.google.com/file/d/... ou link de imagem"
-                          value={studioSettingsForm.logoUrl || ''}
-                          onChange={(e) => setStudioSettingsForm(prev => ({ ...prev, logoUrl: e.target.value }))}
-                          className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-200 text-xs focus:outline-none focus:border-amber-500/50 font-mono"
-                        />
-                      </div>
-                      {studioSettingsForm.logoUrl && (
-                        <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 p-2 rounded-xl flex-shrink-0">
-                          <div className="w-10 h-10 bg-black rounded-lg border border-zinc-700/60 overflow-hidden flex items-center justify-center p-1">
-                            <img
-                              src={transformGoogleDriveUrl(studioSettingsForm.logoUrl)}
-                              alt="Prévia do Logotipo"
-                              referrerPolicy="no-referrer"
-                              className="w-full h-full object-contain"
-                              onError={(e) => {
-                                (e.currentTarget as HTMLElement).style.display = 'none';
-                              }}
-                            />
-                          </div>
-                          <div className="text-[10px] text-zinc-400 font-mono">
-                            <span className="text-emerald-400 font-bold block">✓ Prévia do Logo</span>
-                            <span>Carregado com sucesso</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    <GoogleDriveUploader
+                      label="Upload da Imagem do Logotipo"
+                      mediaType="image"
+                      value={studioSettingsForm.logoUrl || ''}
+                      onChange={(url) => setStudioSettingsForm(prev => ({ ...prev, logoUrl: url }))}
+                      placeholder="Link da imagem no Google Drive ou envie da galeria"
+                      helperText="Formatos recomendados: PNG transparente, WEBP ou JPG."
+                    />
                   </div>
 
                   {/* Tipografia & Estilo de Letra */}

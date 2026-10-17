@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, User, Mail, Phone, FileText, CheckCircle2, History, AlertCircle, Sparkles } from 'lucide-react';
+import { Calendar, Clock, User, Mail, Phone, FileText, CheckCircle2, History, AlertCircle, Sparkles, Cloud } from 'lucide-react';
 import { StudioSession, StudioSettings, DEFAULT_STUDIO_RATES } from '../types';
+import GoogleDriveUploader from './GoogleDriveUploader';
 
 interface BookingSystemProps {
   onAddBooking: (booking: Omit<StudioSession, 'id' | 'status'>) => void;
@@ -103,6 +104,7 @@ export default function BookingSystem({ onAddBooking, myBookings, settings }: Bo
     hours: 2, // Default hours if recording
   });
 
+  const [driveAttachment, setDriveAttachment] = useState('');
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [error, setError] = useState('');
 
@@ -142,6 +144,11 @@ export default function BookingSystem({ onAddBooking, myBookings, settings }: Bo
       return;
     }
 
+    const finalNotes = [
+      formData.notes.trim(),
+      driveAttachment ? `[Ficheiro no Google Drive]: ${driveAttachment}` : ''
+    ].filter(Boolean).join('\n\n');
+
     onAddBooking({
       clientName: formData.clientName,
       clientEmail: formData.clientEmail.trim() || '',
@@ -149,11 +156,12 @@ export default function BookingSystem({ onAddBooking, myBookings, settings }: Bo
       serviceType: formData.serviceType,
       date: formData.date,
       timeSlot: formData.timeSlot,
-      notes: formData.notes,
+      notes: finalNotes,
       estimatedCost: calculateEstimate()
     });
 
     setBookingSuccess(true);
+    setDriveAttachment('');
     // Reset form except customer info for convenience
     setFormData(prev => ({
       ...prev,
@@ -331,15 +339,27 @@ export default function BookingSystem({ onAddBooking, myBookings, settings }: Bo
           <div>
             <label className="block text-[11px] sm:text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-1.5 sm:mb-2 flex items-center gap-1.5">
               <FileText className="w-3.5 h-3.5 text-amber-500" />
-              <span>Instruções Especiais / Referências</span>
+              <span>Instruções Especiais / Observações</span>
             </label>
             <textarea
               name="notes"
               rows={3}
-              placeholder="Fale um pouco sobre a sua música, referências artísticas, link do Google Drive com guias ou instrumentos, etc..."
+              placeholder="Fale um pouco sobre a sua música, ideias para a gravação ou referências..."
               value={formData.notes}
               onChange={handleInputChange}
               className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-zinc-200 text-xs sm:text-sm focus:outline-none focus:border-amber-500/50 resize-none"
+            />
+          </div>
+
+          {/* Direct Google Drive File Attachment for the Booking */}
+          <div className="pt-1">
+            <GoogleDriveUploader
+              label="Anexar Guia / Instrumental / Ficheiro para a Sessão (Google Drive)"
+              mediaType="any"
+              value={driveAttachment}
+              onChange={(url) => setDriveAttachment(url)}
+              placeholder="Envie a música, guia de voz ou batida da sua galeria para o Google Drive"
+              helperText="O arquivo será enviado diretamente para o Google Drive do estúdio para adiantar a preparação da sua sessão."
             />
           </div>
 
