@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   Music, Radio, Calendar, FolderOpen, Instagram, Youtube, Phone, Mail, MapPin, 
   ChevronRight, Disc, Play, Pause, Download, Volume2, Shield, Sparkles, Award,
-  LogIn, LogOut, User, X, Plus, ArrowLeft, Type, Clock, Lock, ShieldCheck, Cloud
+  LogIn, LogOut, User, X, Plus, ArrowLeft, Type, Clock, Lock, ShieldCheck, Cloud,
+  Copy, ExternalLink, AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, GoogleAuthProvider } from 'firebase/auth';
 import { 
   collection, 
   doc, 
@@ -185,16 +186,10 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // User Authentication State
-  const [userEmail, setUserEmail] = useState<string | null>(() => {
-    return localStorage.getItem('aegis_user_email') || null;
-  });
-  const [userName, setUserName] = useState<string | null>(() => {
-    return localStorage.getItem('aegis_user_name') || null;
-  });
-  const [userPhoto, setUserPhoto] = useState<string | null>(() => {
-    return localStorage.getItem('aegis_user_photo') || null;
-  });
+  // User Authentication State (strictly managed by Google Firebase Auth)
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
+  const [userPhoto, setUserPhoto] = useState<string | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
@@ -258,28 +253,68 @@ export default function App() {
         showNotification(`Sessão iniciada como ${result.user.displayName || result.user.email || 'utilizador Google'}.`);
       })
       .catch((error: any) => {
-        console.error('Erro ao concluir autenticação Google:', error);
         const code = error?.code || '';
-        if (code) showNotification(`Não foi possível concluir o login (${code}). Verifica o domínio autorizado no Firebase.`);
+        if (code === 'auth/unauthorized-domain') {
+          console.warn('Firebase Auth: Domínio não autorizado:', window.location.hostname);
+          setAuthDomainError(window.location.hostname);
+          showNotification(`Domínio não autorizado: Adicione ${window.location.hostname} aos Domínios Autorizados no Firebase.`);
+        } else {
+          console.warn('Aviso ao concluir autenticação Google:', error);
+          if (code) showNotification(`Não foi possível concluir o login (${code}).`);
+        }
       });
     return () => { active = false; };
   }, []);
 
+  const [authDomainError, setAuthDomainError] = useState<string | null>(null);
+
   const handleGoogleSignIn = async () => {
     try {
-      // Use redirect instead of popup so the flow works on Android/mobile browsers.
-      await signInWithRedirect(auth, googleProvider);
+      setAuthDomainError(null);
+      // Use popup first for smooth experience in web & iframes, fallback to redirect if popup is blocked
+      const result = await signInWithPopup(auth, googleProvider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) setCachedGoogleToken(credential.accessToken);
+      setIsLoginModalOpen(false);
+      showNotification(`Sessão iniciada como ${result.user.displayName || result.user.email || 'utilizador Google'}.`);
     } catch (error: any) {
-      console.error('Erro ao iniciar login com Google:', error);
-      const code = error?.code || error?.message || 'erro desconhecido';
-      showNotification(`Não foi possível iniciar o login (${code}). Confirma o domínio autorizado e o fornecedor Google no Firebase.`);
+      const code = error?.code || '';
+      if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirErr: any) {
+          if (redirErr?.code === 'auth/unauthorized-domain') {
+            setAuthDomainError(window.location.hostname);
+            showNotification(`Domínio ${window.location.hostname} não autorizado no Firebase Console.`);
+            console.warn('Firebase Auth: Domínio não autorizado no Firebase Console:', window.location.hostname);
+            return;
+          }
+          console.warn('Redirect sign in error:', redirErr);
+        }
+      }
+      
+      if (code === 'auth/unauthorized-domain') {
+        setAuthDomainError(window.location.hostname);
+        showNotification(`Domínio ${window.location.hostname} não autorizado no Firebase Console.`);
+        console.warn('Firebase Auth: Domínio não autorizado. Adicione aos Authorized domains no Firebase Console:', window.location.hostname);
+        return;
+      }
+
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        return;
+      }
+
+      console.warn('Aviso no login com Google:', error);
+      const codeMsg = error?.code || error?.message || 'erro desconhecido';
+      showNotification(`Não foi possível iniciar o login (${codeMsg}). Confirma o domínio autorizado e o fornecedor Google no Firebase.`);
     }
   };
 
-  // Derive Admin Access
-  const isAdmin = auth.currentUser?.emailVerified === true && userEmail !== null && (
-    userEmail.trim().toLowerCase() === 'pascoalbernabe678@gamail.com' ||
-    userEmail.trim().toLowerCase() === 'pascoalbernabe678@gmail.com'
+  // Derive Admin Access: strictly authenticated via Google Firebase with verified email for pascoalbernabe678@gmail.com
+  const isAdmin = auth.currentUser?.emailVerified === true && (
+    auth.currentUser.email?.trim().toLowerCase() === 'pascoalbernabe678@gmail.com' ||
+    auth.currentUser.email?.trim().toLowerCase() === 'pascoalbernabe678@gamail.com'
   );
 
   const handleLogout = async () => {
@@ -1863,12 +1898,43 @@ Aguardo a confirmação e detalhes de início da produção!`;
                 </p>
               </div>
 
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 text-center">
-                <p className="text-xs leading-relaxed text-zinc-300">
-                  Para proteger a conta e o painel administrativo, o acesso é feito através da autenticação oficial do Google.
-                  Não introduzas uma palavra-passe neste site.
-                </p>
-              </div>
+              {/* Unauthorized Domain Warning & Instructions */}
+              {authDomainError && (
+                <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-3 text-left">
+                  <div className="flex items-center gap-2 text-amber-400 font-bold text-xs">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                    <span>Domínio Não Autorizado no Firebase</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-300 leading-relaxed">
+                    O Firebase requer que este domínio esteja listado em <strong>Authorized domains</strong> no Firebase Console do projeto <code>omni-sounds</code>:
+                  </p>
+                  <div className="flex items-center gap-2 bg-black/60 p-2 rounded-lg border border-zinc-800">
+                    <code className="text-[11px] font-mono text-amber-300 flex-1 truncate">{authDomainError}</code>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(authDomainError);
+                        showNotification('Domínio copiado para a área de transferência!');
+                      }}
+                      className="flex items-center gap-1 text-[10px] font-bold bg-amber-500 text-black px-2 py-1 rounded cursor-pointer hover:bg-amber-400"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>Copiar</span>
+                    </button>
+                  </div>
+                  <div className="pt-0.5">
+                    <a
+                      href="https://console.firebase.google.com/project/omni-sounds/authentication/settings"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] font-mono text-amber-400 hover:underline flex items-center gap-1"
+                    >
+                      <span>Abrir Firebase Console &gt; Settings &gt; Authorized domains</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+              )}
 
               {/* Helper Footer */}
               <div className="text-center pt-1">

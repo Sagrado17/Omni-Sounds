@@ -9,13 +9,13 @@ import appletConfig from '../firebase-applet-config.json';
 // the site's own domain (see vercel.json). Using the same origin as authDomain
 // avoids the cross-site storage blocking that breaks signInWithRedirect in
 // Safari, Chrome and in-app browsers. Locally we keep the Firebase default.
-const isLocalHost =
-  typeof window === 'undefined' ||
-  ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
+const isVercel =
+  typeof window !== 'undefined' &&
+  window.location.hostname.endsWith('.vercel.app');
 
 const firebaseConfig = {
   apiKey: appletConfig.apiKey,
-  authDomain: isLocalHost ? appletConfig.authDomain : window.location.host,
+  authDomain: isVercel ? window.location.host : appletConfig.authDomain,
   projectId: appletConfig.projectId,
   storageBucket: appletConfig.storageBucket,
   messagingSenderId: appletConfig.messagingSenderId,
@@ -28,10 +28,15 @@ export const auth = getAuth(app);
 // Use the new Omni Sounds project's default Firestore database.
 export const db = getFirestore(app);
 
+export const DRIVE_SCOPES = [
+  'https://www.googleapis.com/auth/drive',
+  'https://www.googleapis.com/auth/drive.file',
+  'https://www.googleapis.com/auth/drive.readonly',
+];
+
 // Keep Google Drive integration and its in-memory token cache.
 export const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('https://www.googleapis.com/auth/drive.file');
-googleProvider.addScope('https://www.googleapis.com/auth/drive.readonly');
+DRIVE_SCOPES.forEach((scope) => googleProvider.addScope(scope));
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 let cachedAccessToken: string | null = null;

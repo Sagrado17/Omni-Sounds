@@ -47,7 +47,11 @@ export async function ensureGoogleDriveToken(): Promise<string> {
       await signInWithRedirect(auth, googleProvider);
       throw new Error('A redirecionar para o Google para autorizar o Drive. Depois de voltares ao site, repete a ação.');
     }
-    console.error('Erro na autenticação do Google Drive:', error);
+    if (code === 'auth/unauthorized-domain') {
+      console.warn('Firebase Auth (Google Drive): Domínio não autorizado no Firebase Console:', window.location.hostname);
+      throw new Error(`O domínio ${window.location.hostname} precisa de ser adicionado aos 'Authorized domains' no Firebase Console do projeto omni-sounds.`);
+    }
+    console.warn('Aviso na autenticação do Google Drive:', error);
     throw new Error(error.message || 'Falha ao conectar com o Google Drive');
   }
 }
@@ -253,3 +257,23 @@ export async function listGoogleDriveFiles(
     formattedUrl: formatDriveMediaUrl(f.id, f.mimeType)
   }));
 }
+
+/**
+ * Deletes a file from Google Drive.
+ * WARNING: Mutating operation - caller MUST confirm with the user before calling.
+ */
+export async function deleteDriveFile(fileId: string): Promise<void> {
+  const token = await ensureGoogleDriveToken();
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok && response.status !== 204) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Erro ao excluir arquivo do Google Drive (${response.status})`);
+  }
+}
+
