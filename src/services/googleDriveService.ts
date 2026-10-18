@@ -1,5 +1,5 @@
 import { auth, googleProvider, getCachedGoogleToken, setCachedGoogleToken } from '../firebase';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, GoogleAuthProvider } from 'firebase/auth';
 
 export interface DriveFileItem {
   id: string;
@@ -41,6 +41,12 @@ export async function ensureGoogleDriveToken(): Promise<string> {
     setCachedGoogleToken(credential.accessToken);
     return credential.accessToken;
   } catch (error: any) {
+    const code = error?.code || '';
+    // Mobile / in-app browsers often block popups: fall back to the redirect flow.
+    if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+      await signInWithRedirect(auth, googleProvider);
+      throw new Error('A redirecionar para o Google para autorizar o Drive. Depois de voltares ao site, repete a ação.');
+    }
     console.error('Erro na autenticação do Google Drive:', error);
     throw new Error(error.message || 'Falha ao conectar com o Google Drive');
   }
