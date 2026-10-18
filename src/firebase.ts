@@ -5,9 +5,17 @@ import appletConfig from '../firebase-applet-config.json';
 
 // Omni Sounds Firebase project. This intentionally uses the new project's
 // default Firestore database; no data is copied from the previous project.
+// In production (Vercel) the auth helper pages (/__/auth/*) are proxied through
+// the site's own domain (see vercel.json). Using the same origin as authDomain
+// avoids the cross-site storage blocking that breaks signInWithRedirect in
+// Safari, Chrome and in-app browsers. Locally we keep the Firebase default.
+const isLocalHost =
+  typeof window === 'undefined' ||
+  ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
+
 const firebaseConfig = {
   apiKey: appletConfig.apiKey,
-  authDomain: appletConfig.authDomain,
+  authDomain: isLocalHost ? appletConfig.authDomain : window.location.host,
   projectId: appletConfig.projectId,
   storageBucket: appletConfig.storageBucket,
   messagingSenderId: appletConfig.messagingSenderId,
