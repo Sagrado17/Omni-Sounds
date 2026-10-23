@@ -1,13 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { 
   Upload, Cloud, Check, Loader2, Music, Image as ImageIcon, Video, 
-  ExternalLink, X, Search, RefreshCw, FolderOpen, Play, Pause, AlertCircle,
-  Trash2
+  ExternalLink, X, Search, RefreshCw, FolderOpen, Play, Pause, AlertCircle 
 } from 'lucide-react';
 import { 
   uploadFileToDrive, 
   listGoogleDriveFiles, 
-  deleteDriveFile,
   DriveFileItem, 
   formatDriveMediaUrl 
 } from '../services/googleDriveService';
@@ -46,26 +44,6 @@ export default function GoogleDriveUploader({
   const [pickerFilter, setPickerFilter] = useState<'all' | 'audio' | 'image' | 'video'>(
     mediaType === 'any' ? 'all' : mediaType
   );
-  const [fileToDelete, setFileToDelete] = useState<DriveFileItem | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const handleConfirmDelete = async () => {
-    if (!fileToDelete) return;
-    setIsDeleting(true);
-    try {
-      await deleteDriveFile(fileToDelete.id);
-      setDriveFiles((prev) => prev.filter((f) => f.id !== fileToDelete.id));
-      if (value && value.includes(fileToDelete.id)) {
-        onChange('');
-        setUploadedFileName(null);
-      }
-      setFileToDelete(null);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Erro ao excluir arquivo do Google Drive.');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
 
   // Audio preview playback state for uploaded audio
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -491,18 +469,7 @@ export default function GoogleDriveUploader({
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setFileToDelete(file);
-                            }}
-                            className="p-1 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-colors"
-                            title="Excluir arquivo do Google Drive"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                           <span className="text-[10px] font-bold text-amber-400 font-mono bg-amber-500/10 px-2 py-1 rounded border border-amber-500/30">
                             Selecionar
                           </span>
@@ -513,40 +480,6 @@ export default function GoogleDriveUploader({
                 </div>
               )}
             </div>
-
-            {/* Delete Confirmation Modal (Workspace API mandatory requirement) */}
-            {fileToDelete && (
-              <div className="fixed inset-0 z-60 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
-                <div className="bg-zinc-950 border border-red-500/30 rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-4">
-                  <div className="flex items-center gap-2.5 text-red-400">
-                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                    <h4 className="font-bold text-sm text-white">Excluir do Google Drive?</h4>
-                  </div>
-                  <p className="text-xs text-zinc-300 leading-relaxed">
-                    Tem certeza de que deseja excluir permanentemente o ficheiro <strong className="text-amber-400">&ldquo;{fileToDelete.name}&rdquo;</strong> do Google Drive? Esta ação não pode ser revertida.
-                  </p>
-                  <div className="flex justify-end gap-2 pt-1">
-                    <button
-                      type="button"
-                      disabled={isDeleting}
-                      onClick={() => setFileToDelete(null)}
-                      className="px-3.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-semibold border border-zinc-800 cursor-pointer"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isDeleting}
-                      onClick={handleConfirmDelete}
-                      className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
-                    >
-                      {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                      <span>{isDeleting ? 'A Excluir...' : 'Confirmar Exclusão'}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Footer */}
             <div className="p-3 border-t border-zinc-800 bg-zinc-950/80 flex items-center justify-between text-xs text-zinc-400">

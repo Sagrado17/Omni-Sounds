@@ -3,7 +3,6 @@ import { Settings, Plus, CheckCircle, Trash2, Edit3, X, Sliders, Calendar, Music
 import { Beat, StudioSession, StudioProject, StudioSettings, BeatPurchase, CustomBeatOrder, transformGoogleDriveUrl, DEFAULT_CUSTOM_BEAT_PRICES, DEFAULT_STUDIO_RATES, getBeatLicensePrice } from '../types';
 import { FONT_OPTIONS, FontStyleType } from './FontSwitcher';
 import GoogleDriveUploader from './GoogleDriveUploader';
-import GoogleDriveStudioManager from './GoogleDriveStudioManager';
 // @ts-ignore
 import BEAT_COVER_DEFAULT from '../assets/images/aegis_beat_cover_1783897086619.jpg';
 
@@ -61,7 +60,7 @@ export default function AdminPanel({
   onSelectFont
 }: AdminPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'bookings' | 'beats' | 'custom_orders' | 'purchases' | 'projects' | 'settings' | 'drive'>('bookings');
+  const [activeTab, setActiveTab] = useState<'bookings' | 'beats' | 'custom_orders' | 'purchases' | 'projects' | 'settings'>('bookings');
 
   // Form states
   const [beatForm, setBeatForm] = useState({
@@ -391,17 +390,6 @@ export default function AdminPanel({
                 }`}
               >
                 Estúdio & Visual
-              </button>
-              <button
-                onClick={() => setActiveTab('drive')}
-                className={`py-2.5 sm:py-3 px-3 sm:px-4 text-[11px] sm:text-xs font-semibold uppercase tracking-wider border-b-2 transition-all flex-shrink-0 flex items-center gap-1.5 ${
-                  activeTab === 'drive'
-                    ? 'border-amber-500 text-amber-500 font-bold'
-                    : 'border-transparent text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <Cloud className="w-3.5 h-3.5" />
-                <span>Google Drive</span>
               </button>
             </div>
 
@@ -1656,11 +1644,6 @@ export default function AdminPanel({
                     </div>
                   )}
                 </div>
-              )}
-
-              {/* TAB 7: GOOGLE DRIVE STUDIO MANAGER */}
-              {activeTab === 'drive' && (
-                <GoogleDriveStudioManager />
               )}
 
             </div>

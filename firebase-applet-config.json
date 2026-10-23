@@ -1,12 +1,12 @@
 {
-  "projectId": "omni-sounds",
-  "appId": "1:211969082773:web:ade5bafcc5a1ea148ea29c",
-  "apiKey": "AIzaSyCK-Fe3lNWDvMc5WO4em5MIRDwBeKRHHs8",
-  "authDomain": "omni-sounds.firebaseapp.com",
-  "firestoreDatabaseId": "(default)",
-  "storageBucket": "omni-sounds.firebasestorage.app",
-  "messagingSenderId": "211969082773",
-  "measurementId": "G-C3GD0NE8YE",
-  "oAuthClientId": "",
+  "projectId": "gen-lang-client-0514895490",
+  "appId": "1:912237203324:web:62aedb454ed33d964fdef9",
+  "apiKey": "AIzaSyDSpGOD43I4JdogJzVlSPaWjKVjxDClbm4",
+  "authDomain": "gen-lang-client-0514895490.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-aegissoundlab-9f8e4aba-34a2-472f-af9c-85811b162fe7",
+  "storageBucket": "gen-lang-client-0514895490.firebasestorage.app",
+  "messagingSenderId": "912237203324",
+  "measurementId": "",
+  "oAuthClientId": "912237203324-k5jnd6iet4frsr69ehl2cicgm1rrcdvq.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

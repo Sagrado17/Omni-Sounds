@@ -3,42 +3,33 @@ import { getAuth, GoogleAuthProvider, onAuthStateChanged, User, signInWithPopup 
 import { getFirestore } from 'firebase/firestore';
 import appletConfig from '../firebase-applet-config.json';
 
-// Omni Sounds Firebase project. This intentionally uses the new project's
-// default Firestore database; no data is copied from the previous project.
-// In production (Vercel) the auth helper pages (/__/auth/*) are proxied through
-// the site's own domain (see vercel.json). Using the same origin as authDomain
-// avoids the cross-site storage blocking that breaks signInWithRedirect in
-// Safari, Chrome and in-app browsers. Locally we keep the Firebase default.
-const isVercel =
-  typeof window !== 'undefined' &&
-  window.location.hostname.endsWith('.vercel.app');
-
 const firebaseConfig = {
-  apiKey: appletConfig.apiKey,
-  authDomain: isVercel ? window.location.host : appletConfig.authDomain,
-  projectId: appletConfig.projectId,
-  storageBucket: appletConfig.storageBucket,
-  messagingSenderId: appletConfig.messagingSenderId,
-  appId: appletConfig.appId,
-  measurementId: appletConfig.measurementId || undefined,
+  apiKey: appletConfig.apiKey || "AIzaSyDSpGOD43I4JdogJzVlSPaWjKVjxDClbm4",
+  authDomain: appletConfig.authDomain || "gen-lang-client-0514895490.firebaseapp.com",
+  projectId: appletConfig.projectId || "gen-lang-client-0514895490",
+  storageBucket: appletConfig.storageBucket || "gen-lang-client-0514895490.firebasestorage.app",
+  messagingSenderId: appletConfig.messagingSenderId || "912237203324",
+  appId: appletConfig.appId || "1:912237203324:web:62aedb454ed33d964fdef9"
 };
 
+// Initialize Firebase App
 export const app = initializeApp(firebaseConfig);
+
+// Initialize Firebase Auth
 export const auth = getAuth(app);
-// Use the new Omni Sounds project's default Firestore database.
-export const db = getFirestore(app);
 
-export const DRIVE_SCOPES = [
-  'https://www.googleapis.com/auth/drive',
-  'https://www.googleapis.com/auth/drive.file',
-  'https://www.googleapis.com/auth/drive.readonly',
-];
+// Initialize Firestore connecting to custom database ID
+export const db = getFirestore(app, appletConfig.firestoreDatabaseId || "ai-studio-aegissoundlab-9f8e4aba-34a2-472f-af9c-85811b162fe7");
 
-// Keep Google Drive integration and its in-memory token cache.
+// Google Auth Provider configured with Google Drive scopes
 export const googleProvider = new GoogleAuthProvider();
-DRIVE_SCOPES.forEach((scope) => googleProvider.addScope(scope));
-googleProvider.setCustomParameters({ prompt: 'select_account' });
+googleProvider.addScope('https://www.googleapis.com/auth/drive.file');
+googleProvider.addScope('https://www.googleapis.com/auth/drive.readonly');
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
 
+// Cache the access token in memory (never localStorage per security constitution)
 let cachedAccessToken: string | null = null;
 let isSigningIn = false;
 
@@ -46,10 +37,15 @@ export const setCachedGoogleToken = (token: string | null) => {
   cachedAccessToken = token;
 };
 
-export const getCachedGoogleToken = (): string | null => cachedAccessToken;
+export const getCachedGoogleToken = (): string | null => {
+  return cachedAccessToken;
+};
 
 export const getGoogleAccessToken = async (): Promise<string | null> => {
-  if (cachedAccessToken) return cachedAccessToken;
+  if (cachedAccessToken) {
+    return cachedAccessToken;
+  }
+  // If user is logged in, try silent or popup sign-in to refresh Google credentials
   if (auth.currentUser && !isSigningIn) {
     try {
       isSigningIn = true;
@@ -59,8 +55,8 @@ export const getGoogleAccessToken = async (): Promise<string | null> => {
         cachedAccessToken = credential.accessToken;
         return cachedAccessToken;
       }
-    } catch (error) {
-      console.warn('Could not refresh Google access token:', error);
+    } catch (e) {
+      console.warn("Could not get Google access token silently:", e);
     } finally {
       isSigningIn = false;
     }
@@ -68,6 +64,9 @@ export const getGoogleAccessToken = async (): Promise<string | null> => {
   return cachedAccessToken;
 };
 
+// Clear token on sign out
 onAuthStateChanged(auth, (user: User | null) => {
-  if (!user) cachedAccessToken = null;
+  if (!user) {
+    cachedAccessToken = null;
+  }
 });
