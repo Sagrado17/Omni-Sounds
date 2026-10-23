@@ -2,40 +2,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Global safety catch-all
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Common helpers
-    function isSignedIn() {
+    function isAuthenticated() {
       return request.auth != null;
     }
 
-    function isVerifiedEmail(email) {
-      return email is string &&
-             (email.lower() == 'pascoalbernabe678@gmail.com' ||
-              email.lower() == 'pascoalbernabe678@gamail.com');
-    }
-
     function isAdmin() {
-      return isSignedIn() &&
-             isVerifiedEmail(request.auth.token.email);
-    }
-
-    function hasValidClientFields() {
-      return request.resource.data.clientName is string &&
-             request.resource.data.clientName.size() > 0 &&
-             request.resource.data.clientName.size() <= 100 &&
-             request.resource.data.clientEmail is string &&
-             request.resource.data.clientEmail.size() <= 100 &&
-             request.resource.data.clientPhone is string &&
-             request.resource.data.clientPhone.size() <= 40 &&
-             request.resource.data.status == 'Pendente';
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return isAuthenticated() && (
+        request.auth.token.email.lower() == 'pascoalbernabe678@gmail.com' ||
+        request.auth.token.email.lower() == 'pascoalbernabe678@gamail.com' ||
+        request.auth.token.email.lower() == 'pdacomercial64@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
     }
 
     // Connection Health / Testing
@@ -43,90 +21,49 @@ service cloud.firestore {
       allow read: if true;
     }
 
-    // Beats Collection
+    // Beats Collection: Catálogo público, gestão pelo admin
     match /beats/{beatId} {
       allow read: if true;
-      allow create, update: if isAdmin() &&
-                            isValidId(beatId) &&
-                            request.resource.data.id == beatId &&
-                            request.resource.data.title is string &&
-                            request.resource.data.title.size() <= 100 &&
-                            request.resource.data.producer is string &&
-                            request.resource.data.producer.size() <= 100 &&
-                            request.resource.data.bpm is number &&
-                            request.resource.data.genre is string &&
-                            request.resource.data.genre.size() <= 50;
-      allow delete: if isAdmin() && isValidId(beatId);
+      allow write: if isAdmin();
     }
 
-    // Projects Collection
+    // Projects Collection: Portfólio público, gestão pelo admin
     match /projects/{projectId} {
       allow read: if true;
-      allow create, update: if isAdmin() &&
-                            isValidId(projectId) &&
-                            request.resource.data.id == projectId &&
-                            request.resource.data.title is string &&
-                            request.resource.data.title.size() <= 100 &&
-                            request.resource.data.artist is string &&
-                            request.resource.data.artist.size() <= 100;
-      allow delete: if isAdmin() && isValidId(projectId);
+      allow write: if isAdmin();
     }
 
-    // Settings Collection
+    // Settings Collection: Configurações do estúdio públicas para leitura, edição pelo admin
     match /settings/{settingId} {
       allow read: if true;
-      allow create, update: if isAdmin() && isValidId(settingId);
-      allow delete: if isAdmin() && isValidId(settingId);
+      allow write: if isAdmin();
     }
 
-    // Bookings Collection
+    // Bookings Collection: Clientes podem solicitar agendamento, admin lê e atualiza
     match /bookings/{bookingId} {
       allow read: if isAdmin();
-      allow create: if isValidId(bookingId) &&
-                    request.resource.data.id == bookingId &&
-                    hasValidClientFields() &&
-                    request.resource.data.serviceType is string &&
-                    request.resource.data.serviceType.size() <= 60 &&
-                    request.resource.data.date is string &&
-                    request.resource.data.date.size() <= 40 &&
-                    request.resource.data.timeSlot is string &&
-                    request.resource.data.timeSlot.size() <= 40 &&
-                    request.resource.data.estimatedCost is number &&
-                    (!('notes' in request.resource.data) || (request.resource.data.notes is string && request.resource.data.notes.size() <= 1000));
-      allow update, delete: if isAdmin() && isValidId(bookingId);
+      allow create: if true;
+      allow update, delete: if isAdmin();
     }
 
-    // Purchases Collection
+    // Purchases Collection: Clientes podem registrar pedidos de compra de beats, admin lê e atualiza
     match /purchases/{purchaseId} {
       allow read: if isAdmin();
-      allow create: if isValidId(purchaseId) &&
-                    request.resource.data.id == purchaseId &&
-                    hasValidClientFields() &&
-                    request.resource.data.beatId is string && request.resource.data.beatId.size() <= 128 &&
-                    request.resource.data.beatTitle is string && request.resource.data.beatTitle.size() <= 150 &&
-                    request.resource.data.licenseType is string && request.resource.data.licenseType.size() <= 40 &&
-                    request.resource.data.pricePaid is number && request.resource.data.pricePaid >= 0 &&
-                    request.resource.data.timestamp is number;
-      allow update, delete: if isAdmin() && isValidId(purchaseId);
+      allow create: if true;
+      allow update, delete: if isAdmin();
     }
 
-    // Custom Beat Orders Collection
+    // Custom Beat Orders Collection: Clientes podem encomendar beats personalizados, admin lê e atualiza
     match /custom_beats/{orderId} {
       allow read: if isAdmin();
-      allow create: if isValidId(orderId) &&
-                    request.resource.data.id == orderId &&
-                    hasValidClientFields() &&
-                    request.resource.data.genre is string && request.resource.data.genre.size() <= 60 &&
-                    (request.resource.data.bpm is string || request.resource.data.bpm is number) &&
-                    request.resource.data.referenceSongName is string && request.resource.data.referenceSongName.size() <= 200 &&
-                    request.resource.data.beatDuration is string && request.resource.data.beatDuration.size() <= 40 &&
-                    request.resource.data.hasVocal is bool &&
-                    request.resource.data.licenseType is string && request.resource.data.licenseType.size() <= 40 &&
-                    request.resource.data.licensePrice is number && request.resource.data.licensePrice >= 0 &&
-                    request.resource.data.timestamp is number &&
-                    (!('referenceSongUrl' in request.resource.data) || (request.resource.data.referenceSongUrl is string && request.resource.data.referenceSongUrl.size() <= 500)) &&
-                    (!('notes' in request.resource.data) || (request.resource.data.notes is string && request.resource.data.notes.size() <= 1000));
-      allow update, delete: if isAdmin() && isValidId(orderId);
+      allow create: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    // Users Collection: Usuário lê o seu próprio perfil, admin gerencia
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if isAdmin();
     }
   }
 }

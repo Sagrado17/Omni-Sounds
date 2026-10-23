@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, User, signInWithPopup } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore } from 'firebase/firestore';
 import appletConfig from '../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -18,8 +18,10 @@ export const app = initializeApp(firebaseConfig);
 // Initialize Firebase Auth
 export const auth = getAuth(app);
 
-// Initialize Firestore connecting to custom database ID
-export const db = getFirestore(app, appletConfig.firestoreDatabaseId || "ai-studio-aegissoundlab-9f8e4aba-34a2-472f-af9c-85811b162fe7");
+// Initialize Firestore connecting to custom database ID with experimentalAutoDetectLongPolling for ultra-reliable connection
+export const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,
+}, appletConfig.firestoreDatabaseId || "ai-studio-aegissoundlab-9f8e4aba-34a2-472f-af9c-85811b162fe7");
 
 // Google Auth Provider configured with Google Drive scopes
 export const googleProvider = new GoogleAuthProvider();

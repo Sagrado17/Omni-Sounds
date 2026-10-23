@@ -247,3 +247,21 @@ export async function listGoogleDriveFiles(
     formattedUrl: formatDriveMediaUrl(f.id, f.mimeType)
   }));
 }
+
+/**
+ * Deletes a file from Google Drive.
+ */
+export async function deleteDriveFile(fileId: string): Promise<void> {
+  const token = await ensureGoogleDriveToken();
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok && response.status !== 204) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Erro ao excluir arquivo do Google Drive (${response.status})`);
+  }
+}

@@ -27,8 +27,24 @@ enum OperationType {
 }
 
 function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errCode = (error as any)?.code || '';
+  const errMessage = error instanceof Error ? error.message : String(error);
+  const fullErrorStr = `${errCode} ${errMessage} ${String(error)}`.toLowerCase();
+
+  // If connection is offline, unavailable, or reconnecting, operate gracefully in offline mode (like PDA COMERCIAL)
+  if (
+    errCode === 'unavailable' ||
+    errCode === 'deadline-exceeded' ||
+    fullErrorStr.includes('unavailable') ||
+    fullErrorStr.includes('offline') ||
+    fullErrorStr.includes('could not reach cloud firestore backend')
+  ) {
+    console.warn(`Firestore operating in offline/reconnecting mode for [${operationType}] on ${path}: ${errMessage}`);
+    return;
+  }
+
   const errInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMessage,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -39,7 +55,6 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
 }
 
 // Import Types and Components
@@ -268,10 +283,11 @@ export default function App() {
     }
   };
 
-  // Derive Admin Access
+  // Derive Admin Access (matching PDA COMERCIAL)
   const isAdmin = userEmail !== null && (
+    userEmail.trim().toLowerCase() === 'pascoalbernabe678@gmail.com' ||
     userEmail.trim().toLowerCase() === 'pascoalbernabe678@gamail.com' ||
-    userEmail.trim().toLowerCase() === 'pascoalbernabe678@gmail.com'
+    userEmail.trim().toLowerCase() === 'pdacomercial64@gmail.com'
   );
 
   const handleLogout = async () => {
